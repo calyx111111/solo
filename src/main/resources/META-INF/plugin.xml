@@ -1,0 +1,78 @@
+<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
+    <id>com.example.solo</id>
+
+    <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
+    <name>Solo</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor email="support@yourcompany.com" url="https://www.yourcompany.com">YourCompany</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
+    <description><![CDATA[
+    A plugin that provides a focused editing mode similar to IntelliJ IDEA's Zen Mode.
+    Features:
+    <ul>
+        <li>Toggle between standard mode and solo mode</li>
+        <li>Custom panel with quick actions</li>
+        <li>Main editor area with splitter support</li>
+        <li>Hide all UI distractions in solo mode</li>
+        <li>Keyboard shortcut support (Ctrl+Shift+F12)</li>
+        <li>Persistent mode state across IDE restarts</li>
+    </ul>
+  ]]></description>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+
+    <!-- Extension points defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Project-level service for solo mode state (每个 project 独立状态) -->
+        <projectService serviceImplementation="com.example.solo.SoloModeState"/>
+
+        <!-- Project-level service for solo mode management -->
+        <projectService serviceImplementation="com.example.solo.SoloModeManager"/>
+
+        <!-- Start backend when IDE/project loads; Solo mode uses this shared backend. Must run before SoloModeStartupActivity. -->
+        <applicationService serviceImplementation="com.example.solo.vcoder.agent.GlobalBackendService"/>
+        <postStartupActivity id="com.example.solo.BackendProjectActivity" order="first"
+                             implementation="com.example.solo.BackendProjectActivity"/>
+
+        <!-- Restore solo mode on project open - projectOpened 已弃用，改用 postStartupActivity. Runs after BackendStartupActivity. -->
+        <postStartupActivity id="com.example.solo.SoloModeStartupActivity"
+                             order="after com.example.solo.BackendProjectActivity"
+                             implementation="com.example.solo.SoloModeStartupActivity"/>
+
+        <!-- Vcoder/BitFunAI settings for embedded AI panel -->
+        <applicationService serviceImplementation="com.example.solo.vcoder.settings.VcoderSettings"/>
+    </extensions>
+
+    <!-- Actions -->
+    <actions>
+        <action id="com.example.solo.ToggleSoloModeAction"
+                class="com.example.solo.ToggleSoloModeAction"
+                text="Toggle Solo Mode"
+                description="Toggle between standard mode and solo mode">
+            <add-to-group group-id="MainToolbarLeft" anchor="first"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift F11"/>
+        </action>
+        <action id="com.example.solo.ToggleSessionAction"
+                class="com.example.solo.ToggleSessionAction"
+                text="Toggle Session"
+                description="Toggle session (placeholder)">
+            <add-to-group group-id="MainToolbarLeft" anchor="after" relative-to-action="com.example.solo.ToggleSoloModeAction"/>
+        </action>
+        <action id="com.example.solo.ToggleEditorAction"
+                class="com.example.solo.ToggleEditorAction"
+                text="Toggle Editor"
+                description="Toggle editor (placeholder)">
+            <add-to-group group-id="MainToolbarRight" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
