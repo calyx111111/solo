@@ -29,6 +29,10 @@ dependencies {
 // 前端构建 & 复制产物到 plugin resources
 val frontendDir = File(project.projectDir.parentFile, "smart_frontend")
 val frontendDistDir = File(frontendDir, "dist")
+val backendDir = File(project.projectDir.parentFile, "spec_vcoder")
+val backendDistDir = File(backendDir, "dist")
+val backendNodeModulesDir = File(backendDir, "node_modules")
+val backendPackageJson = File(backendDir, "package.json")
 
 tasks.register<Exec>("buildFrontend") {
     group = "build"
@@ -36,8 +40,28 @@ tasks.register<Exec>("buildFrontend") {
     workingDir = frontendDir
 
     if (System.getProperty("os.name").lowercase().contains("windows")) {
+        commandLine("npm", "run", "install")
         commandLine("cmd", "/c", "npm", "run", "build")
     } else {
+        commandLine("npm", "run", "install")
+        commandLine("npm", "run", "build")
+    }
+
+    onlyIf {
+        frontendDir.resolve("package.json").exists()
+    }
+}
+
+tasks.register<Exec>("buildBackend") {
+    group = "build"
+    description = "Build the backend (npm run build in spec_vcoder)"
+    workingDir = backendDir
+
+    if (System.getProperty("os.name").lowercase().contains("windows")) {
+        commandLine("npm", "run", "install")
+        commandLine("cmd", "/c", "npm", "run", "build")
+    } else {
+        commandLine("npm", "run", "install")
         commandLine("npm", "run", "build")
     }
 
@@ -60,6 +84,29 @@ tasks.register<Copy>("copyVcoderResources") {
 
     onlyIf {
         frontendDistDir.exists()
+    }
+}
+
+tasks.register<Copy>("copyBackendResources") {
+    group = "build"
+    description = "Copy backend build output to resources"
+    dependsOn("buildBackend")
+
+    doFirst {
+        delete(file("src/main/resources/ts-backend"))
+    }
+
+    from(backendDistDir) {
+        into("dist")
+    }
+    from(backendNodeModulesDir) {
+        into("node_modules")
+    }
+    from(backendPackageJson)
+    into("src/main/resources/ts-backend")
+
+    onlyIf {
+        backendDistDir.exists()
     }
 }
 
@@ -129,6 +176,7 @@ abstract class GenerateBackendHashTask : DefaultTask() {
 val generateBackendHash = tasks.register<GenerateBackendHashTask>("generateBackendHash") {
     group = "build"
     description = "Generate ts-backend/.backend.hash for plugin resources"
+    dependsOn("copyBackendResources")
     backendDir.set(tsBackendSourceDir)
     outputDir.set(generatedBackendHashResources)
 }
@@ -142,11 +190,14 @@ sourceSets {
 
 tasks.named<ProcessResources>("processResources") {
     dependsOn("copyVcoderResources")
+    dependsOn("copyBackendResources")
     dependsOn(generateBackendHash)
 }
 
 tasks.named("patchPluginXml") {
     dependsOn("copyVcoderResources")
+    dependsOn("copyBackendResources")
+
 }
 
 // Configure Gradle IntelliJ Plugin

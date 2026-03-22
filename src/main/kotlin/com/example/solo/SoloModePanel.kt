@@ -134,16 +134,13 @@ class SoloModePanel(
                 toolTipText = "重新加载页面（若出现 AI未初始化 可尝试）"
                 addActionListener { webViewPanel.reloadPage() }
             })
-//            add(javax.swing.JButton("Exit Solo Mode").apply {
-//                addActionListener { ToggleSoloModeAction.toggleSoloMode(project) }
-//            })
         }
-        val leftPanel = JPanel(BorderLayout()).apply {
-            add(headerPanel, BorderLayout.NORTH)
-            add(webViewPanel.component, BorderLayout.CENTER)
-        }
+//        val leftPanel = JPanel(BorderLayout()).apply {
+//            add(headerPanel, BorderLayout.NORTH)
+//            add(webViewPanel.component, BorderLayout.CENTER)
+//        }
 
-//        var leftPanel = webViewPanel.component
+        var leftPanel = webViewPanel.component
 
         val adjustedProportion = 1.0f - state.splitterProportion
         splitter = JBSplitter(false, adjustedProportion).apply {
