@@ -451,6 +451,8 @@ class SoloModePanel(
         revalidate()
         repaint()
     }
+
+    fun getWebViewPanel(): WebViewPanel? = webViewPanel
 }
 
 

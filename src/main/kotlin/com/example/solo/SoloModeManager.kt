@@ -163,6 +163,10 @@ class SoloModeManager(private val project: Project) : Disposable {
         soloModePanel?.toggleEditorPanel()
     }
 
+    fun emitEventToWebView(event: String, payload: String) {
+        soloModePanel?.getWebViewPanel()?.emitEvent(event, payload)
+    }
+
     private fun storeUIStates() {
         val toolWindowManager = ToolWindowManager.getInstance(project)
         for (id in toolWindowManager.toolWindowIds) {

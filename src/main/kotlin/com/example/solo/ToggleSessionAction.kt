@@ -22,7 +22,11 @@ class ToggleSessionAction : AnAction() {
     }
 
     override fun actionPerformed(e: AnActionEvent) {
-        // TODO: 具体执行的命令内容预留
+        val project = e.project ?: return
+        SoloModeManager.getInstance(project).emitEventToWebView(
+            "toggle-session-panel",
+            "{}"
+        )
     }
 
     companion object {
