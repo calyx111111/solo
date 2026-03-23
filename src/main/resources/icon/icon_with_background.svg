@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="745" height="517" viewBox="0 0 745 517" fill="none">
+  <!-- background from source image -->
+  <rect width="745" height="517" fill="#1A1B1D"/>
+
+<!--  &lt;!&ndash; centered icon, text removed &ndash;&gt;-->
+<!--  <g transform="translate(373 350)">-->
+<!--    &lt;!&ndash; outer frame &ndash;&gt;-->
+<!--    <rect x="-34" y="-24" width="68" height="48" fill="#5F646D"/>-->
+<!--    &lt;!&ndash; inner dark area &ndash;&gt;-->
+<!--    <rect x="-22" y="-12" width="44" height="24" fill="#161A20"/>-->
+<!--    &lt;!&ndash; top small stem &ndash;&gt;-->
+<!--    <rect x="-4" y="-52" width="8" height="8" fill="#FFFFFF"/>-->
+<!--    <rect x="-8" y="-44" width="16" height="8" fill="#5F646D"/>-->
+<!--    &lt;!&ndash; inner diamonds &ndash;&gt;-->
+<!--    <path d="M-12 0L-4 -8L4 0L-4 8L-12 0Z" fill="#5F646D"/>-->
+<!--    <path d="M12 0L20 -8L28 0L20 8L12 0Z" fill="#5F646D"/>-->
+<!--  </g>-->
+</svg>
