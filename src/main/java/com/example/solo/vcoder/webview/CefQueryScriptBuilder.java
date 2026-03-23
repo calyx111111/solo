@@ -10,7 +10,6 @@ final class CefQueryScriptBuilder {
     static String wrapCefQuery(String injectBody) {
         return String.format("""
             window.vcoderCefQuery = function(params) {
-                console.error('[VCoder] cefQuery testing', params, params.request);
                 try {
                     %s
                 } catch (err) {
