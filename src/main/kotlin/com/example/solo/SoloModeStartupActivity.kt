@@ -1,5 +1,7 @@
 package com.example.solo
 
+import com.example.solo.services.EditorTabsRepairService
+import com.example.solo.services.EmptyEditorHeaderService
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
@@ -11,6 +13,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 class SoloModeStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         project.service<EditorTabsRepairService>()
+        project.service<EmptyEditorHeaderService>()
 
         val state = SoloModeState.getInstance(project)
         if (!state.isSoloModeEnabled) return

@@ -1,5 +1,6 @@
 package com.example.solo
 
+import com.example.solo.actions.ToggleProjectPanelAction
 import com.example.solo.vcoder.agent.AgentProcessManager
 import com.example.solo.vcoder.webview.WebViewPanel
 import com.intellij.icons.AllIcons
@@ -8,9 +9,6 @@ import com.intellij.ide.DefaultTreeExpander
 import com.intellij.ide.projectView.ProjectViewNode
 import com.intellij.ide.projectView.impl.ProjectViewPane
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -259,7 +257,7 @@ class SoloModePanel(
         val group = DefaultActionGroup().apply {
             add(expandAllAction)
             add(collapseAllAction)
-            add(HideProjectPanelAction(project))
+            add(ToggleProjectPanelAction(project, ToggleProjectPanelAction.DisplayMode.EXPANDED))
         }
 
         val toolbar = actionManager.createActionToolbar(
@@ -275,7 +273,7 @@ class SoloModePanel(
             background = editorBg
             isOpaque = true
         }
-        toolbarComponent.border = JBUI.Borders.empty()
+        toolbarComponent.border = JBUI.Borders.emptyRight(8)
 
         panel.add(title, BorderLayout.WEST)
         panel.add(toolbarComponent, BorderLayout.EAST)
@@ -312,19 +310,6 @@ class SoloModePanel(
         }
         revalidate()
         repaint()
-    }
-
-    private class HideProjectPanelAction(private val project: Project) : AnAction() {
-        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
-        override fun actionPerformed(e: AnActionEvent) {
-            SoloModeManager.getInstance(project).toggleProjectPanel()
-        }
-
-        override fun update(e: AnActionEvent) {
-            val collapsed = isProjectCollapsed(project)
-            e.presentation.icon = AllIcons.Actions.SplitVertically
-            e.presentation.text = if (collapsed) "Show Project" else "Hide Project"
-        }
     }
 
     private fun setupEditor() {

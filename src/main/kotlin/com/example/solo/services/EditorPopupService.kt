@@ -1,4 +1,4 @@
-package com.example.solo
+package com.example.solo.services
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.*
@@ -141,7 +141,7 @@ class EditorPopupService(
 
     /**
      * 包一层 ActionGroup：
-     * - 只基于“当前层 children”做过滤
+     * - 只基于"当前层 children"做过滤
      * - 不递归探测后代
      * - 保留合法分割线
      *

@@ -1,5 +1,7 @@
-package com.example.solo
+package com.example.solo.actions
 
+import com.example.solo.SoloModeManager
+import com.example.solo.SoloModePanel
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -31,30 +33,6 @@ private const val ARC_SIZE = 12  // 圆角直径，半径 6
 private val TOOLBAR_RIGHT_INSET = JBUI.scale(
     if (ApplicationNamesInfo.getInstance().fullProductName == "DevEco Studio") 0 else 80
 )
-
-/** 图标 20x20 */
-private fun Icon.scaledTo(width: Int, height: Int): Icon {
-    val base = this
-    return object : Icon {
-        override fun paintIcon(c: java.awt.Component?, g: java.awt.Graphics, x: Int, y: Int) {
-            val g2 = g.create() as? Graphics2D ?: return
-            try {
-                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-                g2.translate(x, y)
-                val scaleX = width.toDouble() / base.iconWidth
-                val scaleY = height.toDouble() / base.iconHeight
-                g2.scale(scaleX, scaleY)
-                base.paintIcon(c, g2, 0, 0)
-            } finally {
-                g2.dispose()
-            }
-        }
-
-        override fun getIconWidth(): Int = width
-        override fun getIconHeight(): Int = height
-    }
-}
 
 /** 自定义按钮，与 SoloModeToggleButton 相同的 hover 样式 */
 internal class ToggleEditorButton(
@@ -126,7 +104,7 @@ internal class ToggleEditorButton(
 
 class ToggleEditorAction : AnAction(), CustomComponentAction {
 
-    private val splitIcon: Icon = IconLoader.getIcon("/icon/split.svg", javaClass).scaledTo(20, 20)
+    private val splitIcon: Icon = IconLoader.getIcon("/icon/toggle_right.svg", javaClass).scaledTo(20, 20)
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 

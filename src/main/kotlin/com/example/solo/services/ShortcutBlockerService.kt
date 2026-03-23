@@ -1,5 +1,8 @@
-package com.example.solo
+package com.example.solo.services
 
+import com.example.solo.actions.ToggleEditorAction
+import com.example.solo.actions.ToggleSessionAction
+import com.example.solo.actions.ToggleSoloModeAction
 import com.intellij.ide.DataManager
 import com.intellij.ide.IdeEventQueue
 import com.intellij.openapi.Disposable

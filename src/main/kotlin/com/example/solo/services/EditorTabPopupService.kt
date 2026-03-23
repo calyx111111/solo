@@ -1,4 +1,4 @@
-package com.example.solo
+package com.example.solo.services
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.*
@@ -6,12 +6,8 @@ import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.FileEditorManagerEvent
-import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
-import com.intellij.util.messages.MessageBusConnection
 import java.awt.Component
 import java.awt.Container
 import java.awt.Point
@@ -35,7 +31,7 @@ class EditorTabPopupService(
     private val enabled = AtomicBoolean(false)
     private var installed = false
     private var currentRoot: Container? = null
-    private var messageBusConnection: MessageBusConnection? = null
+    private var tabChangeCallback: (() -> Unit)? = null
 
     /**
      * 已安装过 ContainerListener 的容器
@@ -43,7 +39,7 @@ class EditorTabPopupService(
     private val observedContainers = LinkedHashSet<Container>()
 
     /**
-     * 只用于“防重复安装 listener”，不要强引用 tabLabel
+     * 只用于"防重复安装 listener"，不要强引用 tabLabel
      */
     private val observedTabLabels: MutableSet<JComponent> =
         Collections.newSetFromMap(WeakHashMap())
@@ -126,30 +122,9 @@ class EditorTabPopupService(
                 attachPopupListenersInSubtree(it)
             }
 
-            messageBusConnection = project.messageBus.connect(this).also { connection ->
-                connection.subscribe(
-                    FileEditorManagerListener.FILE_EDITOR_MANAGER,
-                    object : FileEditorManagerListener {
-                        override fun fileOpened(
-                            source: FileEditorManager,
-                            file: com.intellij.openapi.vfs.VirtualFile
-                        ) {
-                            scheduleRefresh()
-                        }
-
-                        override fun fileClosed(
-                            source: FileEditorManager,
-                            file: com.intellij.openapi.vfs.VirtualFile
-                        ) {
-                            scheduleRefresh()
-                        }
-
-                        override fun selectionChanged(event: FileEditorManagerEvent) {
-                            scheduleRefresh()
-                        }
-                    }
-                )
-            }
+            val callback: () -> Unit = { scheduleRefresh() }
+            tabChangeCallback = callback
+            project.service<FileEditorChangeDispatcher>().addCallback(callback)
         } else {
             rebindRootIfNeeded()
         }
@@ -174,11 +149,8 @@ class EditorTabPopupService(
         enabled.set(false)
         refreshScheduled = false
 
-        try {
-            messageBusConnection?.disconnect()
-        } catch (_: Throwable) {
-        }
-        messageBusConnection = null
+        tabChangeCallback?.let { project.service<FileEditorChangeDispatcher>().removeCallback(it) }
+        tabChangeCallback = null
 
         currentRoot?.let { uninstallContainerListenersRecursively(it) }
         currentRoot = null

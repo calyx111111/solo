@@ -1,4 +1,4 @@
-package com.example.solo
+package com.example.solo.services
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -36,7 +36,6 @@ class EditorTabsRepairService(private val project: Project) : Disposable {
     private fun onEventReceived() {
 
         if (receivedAnyEvent.compareAndSet(false, true)) {
-
             unregisterCallback()
         }
     }
@@ -56,6 +55,8 @@ class EditorTabsRepairService(private val project: Project) : Disposable {
             if (receivedAnyEvent.get()) {
                 return@invokeLater
             }
+
+            receivedAnyEvent.set(true)
 
             val fem = FileEditorManager.getInstance(project)
             val openFiles = fem.openFiles

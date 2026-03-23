@@ -1,5 +1,6 @@
-package com.example.solo
+package com.example.solo.actions
 
+import com.example.solo.SoloModeManager
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -23,32 +24,6 @@ import javax.swing.SwingUtilities
 /** 按钮尺寸与 SVG 一致；圆角半径 rx=14，RoundRectangle2D 的 arcWidth/arcHeight 为直径 = 28 */
 private const val BUTTON_WIDTH = 80
 private const val BUTTON_SIZE_28 = 28  // 按钮高度与圆角直径共用
-
-/**
- * 将图标缩放到指定尺寸显示，解决 toolbar 将 SVG 限制为 16x16 导致 80x28 图标显示过小的问题。
- */
-private fun Icon.scaledTo(width: Int, height: Int): Icon {
-    val base = this
-    return object : Icon {
-        override fun paintIcon(c: java.awt.Component?, g: java.awt.Graphics, x: Int, y: Int) {
-            val g2 = g.create() as? Graphics2D ?: return
-            try {
-                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR)
-                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
-                g2.translate(x, y)
-                val scaleX = width.toDouble() / base.iconWidth
-                val scaleY = height.toDouble() / base.iconHeight
-                g2.scale(scaleX, scaleY)
-                base.paintIcon(c, g2, 0, 0)
-            } finally {
-                g2.dispose()
-            }
-        }
-
-        override fun getIconWidth(): Int = width
-        override fun getIconHeight(): Int = height
-    }
-}
 
 /**
  * 自定义 toolbar 按钮组件，hover 背景为 80×28、rx=14 圆角，与图标区域完全一致。

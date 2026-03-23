@@ -1,5 +1,14 @@
 package com.example.solo
 
+import com.example.solo.actions.SoloModeToggleButton
+import com.example.solo.actions.ToggleEditorButton
+import com.example.solo.actions.ToggleSessionAction
+import com.example.solo.services.EditorTabPopupService
+import com.example.solo.services.EditorTabsRepairService
+import com.example.solo.services.EditorTabsToolbarService
+import com.example.solo.services.EditorPopupService
+import com.example.solo.services.EmptyEditorHeaderService
+import com.example.solo.services.ShortcutBlockerService
 import com.example.solo.vcoder.agent.AgentProcessManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
@@ -53,10 +62,11 @@ class SoloModeManager(private val project: Project) : Disposable {
     val isSoloModeActive: Boolean
         get() = soloModePanel != null
 
-    private fun setupToolbarController(editorsSplitters: Component?) {
+    private fun setupEditorController(editorsSplitters: Component?) {
         if (editorsSplitters == null) return
         project.service<EditorTabsToolbarService>().install { editorsSplitters }
         project.service<EditorTabPopupService>().install { editorsSplitters }
+        project.service<EmptyEditorHeaderService>().install { editorsSplitters }
     }
 
     fun enterSoloMode() {
@@ -96,6 +106,7 @@ class SoloModeManager(private val project: Project) : Disposable {
                         project.service<EditorTabsToolbarService>().enable()
                         project.service<EditorPopupService>().enable()
                         project.service<EditorTabPopupService>().enable()
+                        project.service<EmptyEditorHeaderService>().enable()
 
                         SoloModeState.getInstance(project).isSoloModeEnabled = true
                         println("SoloMode: Solo mode activated")
@@ -128,6 +139,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         project.service<EditorTabsToolbarService>().disable()
         project.service<EditorPopupService>().disable()
         project.service<EditorTabPopupService>().disable()
+        project.service<EmptyEditorHeaderService>().disable()
 
         try {
             if (!project.isDisposed) {
@@ -452,7 +464,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         val editorsSplitters = findEditorsSplitters(originalContentPane as Container)
         println("SoloMode: Found editorsSplitters: $editorsSplitters")
 
-        setupToolbarController(editorsSplitters)
+        setupEditorController(editorsSplitters)
 
         if (editorsSplitters != null) {
             editorComponent = editorsSplitters

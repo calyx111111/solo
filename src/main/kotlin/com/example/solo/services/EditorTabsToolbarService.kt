@@ -1,23 +1,16 @@
-package com.example.solo
+package com.example.solo.services
 
-import com.intellij.icons.AllIcons
+import com.example.solo.actions.ToggleProjectPanelAction
 import com.intellij.ide.actions.TabListAction
 import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.FileEditorManagerEvent
-import com.intellij.openapi.fileEditor.FileEditorManagerListener
-import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
-import com.intellij.util.messages.MessageBusConnection
 import java.awt.Component
 import java.awt.Container
 import java.awt.event.ContainerEvent
@@ -39,7 +32,7 @@ class EditorTabsToolbarService(
     private val enabled = AtomicBoolean(false)
     private var installed = false
     private var currentRoot: Container? = null
-    private var messageBusConnection: MessageBusConnection? = null
+    private var tabChangeCallback: (() -> Unit)? = null
     private val observedContainers = LinkedHashSet<Container>()
 
     private val containerListener = object : ContainerListener {
@@ -78,30 +71,9 @@ class EditorTabsToolbarService(
         currentRoot = rootProvider() as? Container
         currentRoot?.let { installContainerListenersRecursively(it) }
 
-        messageBusConnection = project.messageBus.connect().also { connection ->
-            connection.subscribe(
-                FileEditorManagerListener.FILE_EDITOR_MANAGER,
-                object : FileEditorManagerListener {
-                    override fun fileOpened(
-                        source: FileEditorManager,
-                        file: com.intellij.openapi.vfs.VirtualFile
-                    ) {
-                        scheduleRefresh()
-                    }
-
-                    override fun fileClosed(
-                        source: FileEditorManager,
-                        file: com.intellij.openapi.vfs.VirtualFile
-                    ) {
-                        scheduleRefresh()
-                    }
-
-                    override fun selectionChanged(event: FileEditorManagerEvent) {
-                        scheduleRefresh()
-                    }
-                }
-            )
-        }
+        val callback: () -> Unit = { scheduleRefresh() }
+        tabChangeCallback = callback
+        project.service<FileEditorChangeDispatcher>().addCallback(callback)
 
         println("EditorTabsMoreToolbarController: installed")
     }
@@ -147,8 +119,8 @@ class EditorTabsToolbarService(
         enabled.set(false)
         refreshNow()
 
-        messageBusConnection?.disconnect()
-        messageBusConnection = null
+        tabChangeCallback?.let { project.service<FileEditorChangeDispatcher>().removeCallback(it) }
+        tabChangeCallback = null
 
         currentRoot?.let { uninstallContainerListenersRecursively(it) }
         currentRoot = null
@@ -213,12 +185,6 @@ class EditorTabsToolbarService(
         toolbar.repaint()
         toolbar.parent?.revalidate()
         toolbar.parent?.repaint()
-
-//        println(
-//            "EditorTabsMoreToolbarController: enable toolbar=" +
-//                    "${toolbar.javaClass.name}@${Integer.toHexString(System.identityHashCode(toolbar))}, " +
-//                    "childCount=${toolbar.componentCount}"
-//        )
     }
 
     private fun disableToolbar(toolbar: ActionToolbarImpl) {
@@ -236,12 +202,6 @@ class EditorTabsToolbarService(
         toolbar.repaint()
         toolbar.parent?.revalidate()
         toolbar.parent?.repaint()
-
-//        println(
-//            "EditorTabsMoreToolbarController: disable toolbar=" +
-//                    "${toolbar.javaClass.name}@${Integer.toHexString(System.identityHashCode(toolbar))}, " +
-//                    "childCount=${toolbar.componentCount}"
-//        )
     }
 
     private fun ensurePlaceholder(toolbar: ActionToolbarImpl): JComponent {
@@ -274,7 +234,7 @@ class EditorTabsToolbarService(
 
     private fun createFixedPlaceholder(toolbar: ActionToolbarImpl): JComponent {
         val actionGroup = DefaultActionGroup().apply {
-            add(SoloTabsMoreToolbarAction())
+            add(ToggleProjectPanelAction(project, ToggleProjectPanelAction.DisplayMode.COLLAPSED))
         }
 
         val miniToolbar = ActionManager.getInstance().createActionToolbar(
@@ -290,21 +250,6 @@ class EditorTabsToolbarService(
             name = PLACEHOLDER_NAME
             isOpaque = false
             isVisible = false
-        }
-    }
-
-    private inner class SoloTabsMoreToolbarAction : AnAction(), DumbAware {
-        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
-
-        override fun update(e: AnActionEvent) {
-            e.presentation.isEnabledAndVisible = SoloModePanel.isProjectCollapsed(project)
-            e.presentation.text = "Solo"
-            e.presentation.description = "Show Project Panel"
-            e.presentation.icon = AllIcons.Actions.SplitVertically
-        }
-
-        override fun actionPerformed(e: AnActionEvent) {
-            SoloModeManager.getInstance(project).toggleProjectPanel()
         }
     }
 
