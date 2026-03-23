@@ -3,6 +3,7 @@ package com.example.solo.vcoder.agent;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,12 +28,12 @@ public class GlobalBackendService implements Disposable {
     }
 
     /**
-     * Get the shared agent. Starts the backend on first access if not yet started.
+     * Get the shared agent with project context. Starts the backend on first access if not yet started.
      */
     @NotNull
-    public synchronized AgentProcessManager getAgent() {
+    public synchronized AgentProcessManager getAgent(@Nullable Project project) {
         if (agentManager == null) {
-            agentManager = new AgentProcessManager(null);
+            agentManager = new AgentProcessManager(project);
             agentManager.startAgent();
             started = true;
             LOG.info("Global backend started at IDE startup");
@@ -41,12 +42,11 @@ public class GlobalBackendService implements Disposable {
     }
 
     /**
-     * Get the agent and block until backend port is ready. Use before creating frontend.
-     * Retries startAgent() if process died (e.g. exit code 9).
+     * Get the agent with project context and block until backend port is ready.
      */
     @NotNull
-    public AgentProcessManager getAgentAndWaitReady() {
-        AgentProcessManager agent = getAgent();
+    public AgentProcessManager getAgentAndWaitReady(@Nullable Project project) {
+        AgentProcessManager agent = getAgent(project);
         if (!agent.blockUntilPortReady(10000)) {
             if (!agent.isTypeScriptAgentRunning()) {
                 LOG.warn("Backend process died, retrying startAgent()");

@@ -87,7 +87,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 val agentManager =
-                    com.example.solo.vcoder.agent.GlobalBackendService.getInstance().getAgentAndWaitReady()
+                    com.example.solo.vcoder.agent.GlobalBackendService.getInstance().getAgentAndWaitReady(project)
                 ApplicationManager.getApplication().invokeLater {
                     if (!project.isDisposed) {
                         createSoloModeUI(agentManager)

@@ -15,10 +15,9 @@ class BackendProjectActivity : ProjectActivity {
     }
 
     override suspend fun execute(project: Project) {
-        // 放到后台线程，避免阻塞项目启动流程
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
-                GlobalBackendService.getInstance().agent
+                GlobalBackendService.getInstance().getAgent(project)
                 LOG.info("Backend started at project startup")
             } catch (e: Exception) {
                 LOG.warn("Failed to start backend at project startup: ${e.message}", e)
