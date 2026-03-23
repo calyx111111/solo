@@ -59,20 +59,20 @@
     <!-- Actions -->
     <actions>
         <action id="com.example.solo.ToggleSoloModeAction"
-                class="com.example.solo.ToggleSoloModeAction"
+                class="com.example.solo.actions.ToggleSoloModeAction"
                 text="Toggle Solo Mode"
                 description="Toggle between standard mode and solo mode">
             <add-to-group group-id="MainToolbarLeft" anchor="first"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift F11"/>
         </action>
         <action id="com.example.solo.ToggleSessionAction"
-                class="com.example.solo.ToggleSessionAction"
+                class="com.example.solo.actions.ToggleSessionAction"
                 text="Toggle Session"
                 description="Toggle session (placeholder)">
             <add-to-group group-id="MainToolbarLeft" anchor="after" relative-to-action="com.example.solo.ToggleSoloModeAction"/>
         </action>
         <action id="com.example.solo.ToggleEditorAction"
-                class="com.example.solo.ToggleEditorAction"
+                class="com.example.solo.actions.ToggleEditorAction"
                 text="Toggle Editor"
                 description="Toggle editor (placeholder)">
             <add-to-group group-id="MainToolbarRight" anchor="last"/>
