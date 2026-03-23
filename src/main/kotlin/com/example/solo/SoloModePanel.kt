@@ -194,16 +194,12 @@ class SoloModePanel(
         content.border = JBUI.Borders.empty()
 
         // Header 已在 createHeaderInternal 中设置了 panel/title/toolbarComponent 的背景
+        // 仅设置 header 直接子组件（title、toolbarComponent），不修改 toolbar 内部按钮，避免复用后布局异常
         header.background = editorBg
         header.isOpaque = true
         (header as? Container)?.components?.forEach { c ->
             c.background = editorBg
             if (c is JComponent) c.isOpaque = true
-            // toolbar 的 component 也需要单独设置
-            if (c is Container) c.components.forEach { cc ->
-                cc.background = editorBg
-                if (cc is JComponent) cc.isOpaque = true
-            }
         }
 
         val panel = SimpleToolWindowPanel(true).apply {

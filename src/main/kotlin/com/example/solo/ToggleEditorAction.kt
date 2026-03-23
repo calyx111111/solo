@@ -9,9 +9,7 @@ import com.intellij.openapi.actionSystem.ex.CustomComponentAction
 import com.intellij.openapi.actionSystem.Presentation
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.util.IconLoader
-import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
-import java.awt.Color
 import java.awt.BorderLayout
 import java.awt.Dimension
 import java.awt.Graphics
@@ -101,7 +99,7 @@ internal class ToggleEditorButton(
             g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
 
             if (isHovered && isEnabled) {
-                g2.color = HOVER_BACKGROUND
+                g2.color = JBUI.CurrentTheme.CustomFrameDecorations.titlePaneButtonHoverBackground()
                 g2.fill(
                     RoundRectangle2D.Float(
                         0f, 0f, width.toFloat(), height.toFloat(),
@@ -123,13 +121,6 @@ internal class ToggleEditorButton(
         toolTipText = presentation.text
         isEnabled = presentation.isEnabled
         repaint()
-    }
-
-    companion object {
-        private val HOVER_BACKGROUND: Color = JBColor(
-            Color(0xE8, 0xE8, 0xE8),
-            Color(0x45, 0x45, 0x45)
-        )
     }
 }
 
