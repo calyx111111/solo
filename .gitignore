@@ -3,10 +3,8 @@
 .run
 .trae
 build/
-src/main/**/webview/**
-!src/main/**/webview/.gitkeep
-src/main/**/ts-backend/**
-!src/main/**/ts-backend/.gitkeep
+src/main/resources/webview/**
+src/main/resources/ts-backend/**
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
