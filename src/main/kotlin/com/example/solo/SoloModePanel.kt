@@ -13,7 +13,6 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
@@ -22,7 +21,6 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.pom.Navigatable
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBLabel
-import com.intellij.util.messages.MessageBusConnection
 import com.intellij.util.ui.JBFont
 import com.intellij.util.ui.JBUI
 import java.awt.AWTEvent
@@ -93,10 +91,6 @@ class SoloModePanel(
 
     private val projectViewPane = getOrCreateProjectViewPane(project)
 
-    private var messageBusConnection: MessageBusConnection? = null
-    private var savedSplitterProportion: Float = SoloModeState.getInstance(project).splitterProportion
-    private var isEditorExpanded: Boolean = false
-
     private var savedRightSplitterProportionBeforeCollapse: Float = 0.3f
     private var savedSplitterProportionBeforeEditorCollapse: Float = 0.7f
 
@@ -159,7 +153,6 @@ class SoloModePanel(
         add(splitter, BorderLayout.CENTER)
 
         setupEditor()
-        setupFileEditorListener()
         installGlobalRightClickBlocker()
     }
 
@@ -295,69 +288,6 @@ class SoloModePanel(
         }
     }
 
-    private fun setupFileEditorListener() {
-        messageBusConnection = project.messageBus.connect()
-        messageBusConnection?.subscribe(
-            FileEditorManagerListener.FILE_EDITOR_MANAGER,
-            object : FileEditorManagerListener {
-                override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
-                    SwingUtilities.invokeLater { updateLayoutBasedOnEditorContent() }
-                }
-
-                override fun fileClosed(source: FileEditorManager, file: VirtualFile) {
-                    SwingUtilities.invokeLater { updateLayoutBasedOnEditorContent() }
-                }
-            }
-        )
-    }
-
-    private fun hasOpenFiles(): Boolean {
-        val fileEditorManager = FileEditorManager.getInstance(project)
-        return fileEditorManager.openFiles.isNotEmpty()
-    }
-
-    private fun updateLayoutBasedOnEditorContent() {
-        if (project.isDisposed) return
-
-        val hasFiles = hasOpenFiles()
-
-        if (hasFiles && isEditorExpanded) {
-            restoreNormalLayout()
-        } else if (!hasFiles && !isEditorExpanded) {
-            expandWebView()
-        }
-    }
-
-    private fun expandWebView() {
-        if (isEditorExpanded) return
-
-        savedSplitterProportion = splitter.proportion
-        isEditorExpanded = true
-
-        splitter.setProportion(1.0f)
-
-        revalidate()
-        repaint()
-    }
-
-    private fun restoreNormalLayout() {
-        if (!isEditorExpanded) return
-
-        isEditorExpanded = false
-
-        val proportionToRestore = if (savedSplitterProportion <= 0.01f || savedSplitterProportion >= 0.99f) {
-            val state = SoloModeState.getInstance(project)
-            1.0f - state.splitterProportion
-        } else {
-            savedSplitterProportion
-        }
-
-        splitter.setProportion(proportionToRestore)
-
-        revalidate()
-        repaint()
-    }
-
     private fun showEmptyEditorMessage() {
         editorPanel.removeAll()
         val emptyLabel = JLabel("No file open - Press Ctrl+Shift+N to open a file").apply {
@@ -415,11 +345,9 @@ class SoloModePanel(
 
     fun saveSplitterProportion() {
         val state = SoloModeState.getInstance(project)
-        if (!isEditorExpanded) {
-            state.splitterProportion = 1.0f - splitter.proportion
-            if (!isProjectCollapsed(project)) {
-                state.rightSplitterProportion = rightSplitter.proportion
-            }
+        state.splitterProportion = 1.0f - splitter.proportion
+        if (!isProjectCollapsed(project)) {
+            state.rightSplitterProportion = rightSplitter.proportion
         }
     }
 
@@ -433,23 +361,9 @@ class SoloModePanel(
             // IDE 关闭时 SoloModeState 可能已不可用，忽略
         }
         disposeWebView()
-        disposeListeners()
-    }
-
-    private fun disposeListeners() {
-        try {
-            messageBusConnection?.disconnect()
-            messageBusConnection = null
-        } catch (_: Exception) {
-        }
     }
 
     fun disposeWebView() {
-    }
-
-    fun refresh() {
-        revalidate()
-        repaint()
     }
 
     fun getWebViewPanel(): WebViewPanel? = webViewPanel
