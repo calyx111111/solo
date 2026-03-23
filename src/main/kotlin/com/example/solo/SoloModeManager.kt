@@ -64,7 +64,7 @@ class SoloModeManager(private val project: Project) : Disposable {
 
         // todo: deveco首次打开时，editortab toolbar会不显示影响按钮状态 通过重新打开tab页规避刷新
         if (firstOpen.also { firstOpen = false }) {
-            EditorTabsRepair.repair(project)
+            project.service<EditorTabsRepairService>().repair()
         }
 
         ApplicationManager.getApplication().invokeLater {

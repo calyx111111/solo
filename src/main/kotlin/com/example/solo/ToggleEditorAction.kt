@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.ex.CustomComponentAction
 import com.intellij.openapi.actionSystem.Presentation
+import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.JBUI
@@ -28,9 +29,10 @@ import javax.swing.SwingUtilities
 private const val BUTTON_SIZE = 28
 private const val ARC_SIZE = 12  // 圆角直径，半径 6
 
-/** MainToolbarRight 最右侧会被窗口裁剪，需预留右侧边距 */
-// todo : change to 0 in deveco
-private val TOOLBAR_RIGHT_INSET = JBUI.scale(80)
+/** MainToolbarRight 最右侧会被窗口裁剪，需预留右侧边距；DevEco Studio 下设为 0 */
+private val TOOLBAR_RIGHT_INSET = JBUI.scale(
+    if (ApplicationNamesInfo.getInstance().fullProductName == "DevEco Studio") 0 else 80
+)
 
 /** 图标 20x20 */
 private fun Icon.scaledTo(width: Int, height: Int): Icon {
@@ -66,7 +68,7 @@ internal class ToggleEditorButton(
         putClientProperty(CustomComponentAction.ACTION_KEY, action)
         preferredSize = Dimension(BUTTON_SIZE, BUTTON_SIZE)
         minimumSize = Dimension(BUTTON_SIZE, BUTTON_SIZE)
-        toolTipText = presentation.description
+        toolTipText = presentation.text
         isOpaque = false
 
         addMouseListener(object : MouseAdapter() {
@@ -118,7 +120,7 @@ internal class ToggleEditorButton(
     }
 
     fun refreshFromPresentation() {
-        toolTipText = presentation.description
+        toolTipText = presentation.text
         isEnabled = presentation.isEnabled
         repaint()
     }

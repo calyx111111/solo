@@ -64,7 +64,7 @@ class SoloModeToggleButton(
         putClientProperty(CustomComponentAction.ACTION_KEY, action)
         preferredSize = Dimension(BUTTON_WIDTH, BUTTON_SIZE_28)
         minimumSize = Dimension(BUTTON_WIDTH, BUTTON_SIZE_28)
-        toolTipText = presentation.description
+        toolTipText = presentation.text
         isOpaque = false
 
         addMouseListener(object : MouseAdapter() {
@@ -120,7 +120,7 @@ class SoloModeToggleButton(
     }
 
     fun refreshFromPresentation() {
-        toolTipText = presentation.description
+        toolTipText = presentation.text
         isEnabled = presentation.isEnabled
         repaint()
     }
