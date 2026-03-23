@@ -12,6 +12,7 @@ import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
@@ -19,6 +20,7 @@ import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.pom.Navigatable
+import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.JBFont
@@ -35,6 +37,7 @@ import java.awt.event.MouseEvent
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
+import javax.swing.UIManager
 import javax.swing.SwingConstants
 import javax.swing.SwingUtilities
 import javax.swing.tree.DefaultMutableTreeNode
@@ -157,16 +160,56 @@ class SoloModePanel(
     }
 
 
+    private fun getEditorBackgroundColor(): java.awt.Color =
+        EditorColorsManager.getInstance().globalScheme.defaultBackground
+
+    /** 从 IDE 主题获取 Separator.separatorColor，lazy 确保主题切换时自动更新 */
+    private fun getSeparatorLineColor(): java.awt.Color =
+        JBColor.lazy { UIManager.getColor("Separator.separatorColor")!! }
+
+    private fun applyEditorBackgroundRecursively(component: Component, color: java.awt.Color) {
+        component.background = color
+        if (component is JComponent) {
+            component.isOpaque = true
+        }
+        if (component is Container) {
+            for (i in 0 until component.componentCount) {
+                applyEditorBackgroundRecursively(component.getComponent(i), color)
+            }
+        }
+    }
+
     private fun createProjectPanel(): JPanel {
+        val editorBg = getEditorBackgroundColor()
+
         val content = projectViewContentCache.getOrPut(project) {
             val c = projectViewPane.createComponent()
             installProjectTreeOpenBehaviorOnce(project, projectViewPane)
             c
         }
 
-        val header = projectHeaderCache.getOrPut(project) { createHeaderInternal() }
+        val header = projectHeaderCache.getOrPut(project) { createHeaderInternal(editorBg) }
 
-        val panel = SimpleToolWindowPanel(true)
+        applyEditorBackgroundRecursively(content, editorBg)
+        content.border = JBUI.Borders.empty()
+
+        // Header 已在 createHeaderInternal 中设置了 panel/title/toolbarComponent 的背景
+        header.background = editorBg
+        header.isOpaque = true
+        (header as? Container)?.components?.forEach { c ->
+            c.background = editorBg
+            if (c is JComponent) c.isOpaque = true
+            // toolbar 的 component 也需要单独设置
+            if (c is Container) c.components.forEach { cc ->
+                cc.background = editorBg
+                if (cc is JComponent) cc.isOpaque = true
+            }
+        }
+
+        val panel = SimpleToolWindowPanel(true).apply {
+            background = editorBg
+            isOpaque = true
+        }
         panel.setContent(content)
         panel.setToolbar(header)
 
@@ -175,14 +218,28 @@ class SoloModePanel(
         return panel
     }
 
-    private fun createHeaderInternal(): JComponent {
-        val panel = JPanel(BorderLayout())
-        panel.border = JBUI.Borders.empty(0, 8)
-        panel.preferredSize = JBUI.size(-1, 40)
 
-        val title = JBLabel("Project")
+    private fun createHeaderInternal(editorBg: java.awt.Color): JComponent {
+        val panel = JPanel(BorderLayout()).apply {
+            background = editorBg
+            isOpaque = true
+        }
+
+        // empty(0, 0): 无内边距使分割线延伸到边缘
+        panel.border = JBUI.Borders.merge(
+            JBUI.Borders.empty(0, 0),
+            JBUI.Borders.customLine(getSeparatorLineColor(), 0, 0, 1, 0),
+            false
+        )
+        panel.preferredSize = JBUI.size(-1, 42)
+
+        val title = JBLabel("Project").apply {
+            background = editorBg
+            isOpaque = true
+        }
         title.font = JBFont.label().deriveFont(java.awt.Font.BOLD)
-        title.border = JBUI.Borders.emptyLeft(4)
+        // title的内边距
+        title.border = JBUI.Borders.emptyLeft(8)
 
         val actionManager = ActionManager.getInstance()
         val commonActionsManager = CommonActionsManager.getInstance()
@@ -218,7 +275,10 @@ class SoloModePanel(
         toolbar.targetComponent = tree ?: panel
         toolbar.setReservePlaceAutoPopupIcon(false)
 
-        val toolbarComponent = toolbar.component
+        val toolbarComponent = toolbar.component.apply {
+            background = editorBg
+            isOpaque = true
+        }
         toolbarComponent.border = JBUI.Borders.empty()
 
         panel.add(title, BorderLayout.WEST)
