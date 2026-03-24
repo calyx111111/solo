@@ -22,6 +22,8 @@ import com.intellij.openapi.wm.IdeFrame
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.wm.WindowManager
 import java.awt.*
+import java.awt.event.ComponentAdapter
+import java.awt.event.ComponentEvent
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
 import javax.swing.*
@@ -29,15 +31,18 @@ import javax.swing.*
 class SoloModeManager(private val project: Project) : Disposable {
 
     private var soloModePanel: SoloModePanel? = null
-    private var soloModeRootPanel: JPanel? = null
 
     private val storedToolWindowStates = mutableMapOf<String, Boolean>()
     private var wasStatusBarVisible = true
 
     private var ideFrame: IdeFrame? = null
     private var frame: Window? = null
-    private var originalContentPane: Container? = null
-    private var soloContentPane: JPanel? = null
+    /** 全屏 Solo 遮罩根面板，挂在 [soloOverlayLayeredPane] 的较高层上 */
+    private var soloOverlayRoot: JPanel? = null
+    private var soloOverlayLayeredPane: JLayeredPane? = null
+    private var soloOverlayBoundsListener: ComponentAdapter? = null
+    /** 用于在标题栏高度变化时同步 overlay，退出时移除监听 */
+    private var soloOverlayHeaderForBounds: Component? = null
     private var rootPane: JRootPane? = null
 
     private var editorComponent: Component? = null
@@ -463,9 +468,9 @@ class SoloModeManager(private val project: Project) : Disposable {
             return
         }
 
-        originalContentPane = rootPane!!.contentPane
+        val content = rootPane!!.contentPane
 
-        val editorsSplitters = findEditorsSplitters(originalContentPane as Container)
+        val editorsSplitters = findEditorsSplitters(content)
         println("SoloMode: Found editorsSplitters: $editorsSplitters")
 
         setupEditorController(editorsSplitters)
@@ -485,56 +490,102 @@ class SoloModeManager(private val project: Project) : Disposable {
             agentManager
         )
 
-        soloContentPane = JPanel(BorderLayout()).apply {
+        val layered = rootPane!!.layeredPane
+        soloOverlayLayeredPane = layered
+
+        val overlay = JPanel(BorderLayout()).apply {
             isOpaque = true
             background = UIManager.getColor("Panel.background")
             add(soloModePanel, BorderLayout.CENTER)
         }
+        soloOverlayRoot = overlay
 
-        rootPane!!.setContentPane(soloContentPane)
+        val boundsListener = object : ComponentAdapter() {
+            override fun componentResized(e: ComponentEvent) {
+                layoutSoloOverlay(layered, overlay)
+            }
+        }
+        layered.addComponentListener(boundsListener)
+        soloOverlayBoundsListener = boundsListener
+
+        val frameRoot = ideFrameComponent as? Container
+        if (frameRoot != null) {
+            val header = findToolbarFrameHeader(frameRoot)
+            if (header != null) {
+                header.addComponentListener(boundsListener)
+                soloOverlayHeaderForBounds = header
+            }
+        }
+
+        layered.add(overlay, JLayeredPane.POPUP_LAYER, 0)
 
         frame?.revalidate()
         frame?.repaint()
+        layoutSoloOverlay(layered, overlay)
 
-        println("SoloMode: Content pane replaced with solo mode panel")
+        println("SoloMode: Solo overlay added below header (layeredPane POPUP_LAYER)")
+    }
+
+    /**
+     * Solo 遮罩从标题栏（New UI [ToolbarFrameHeader]）下缘开始铺满，保留顶部标题栏区域可交互。
+     */
+    private fun layoutSoloOverlay(layered: JLayeredPane, overlay: Component) {
+        val w = layered.width.coerceAtLeast(0)
+        val h = layered.height.coerceAtLeast(0)
+        val top = headerBottomYInLayeredPane(layered).coerceIn(0, h)
+        val overlayH = (h - top).coerceAtLeast(0)
+        overlay.setBounds(0, top, w, overlayH)
+    }
+
+    private fun headerBottomYInLayeredPane(layered: JLayeredPane): Int {
+        val frameComp = ideFrame?.component as? Container ?: return 0
+        val header = findToolbarFrameHeader(frameComp) ?: return 0
+        if (!header.isShowing || header.height <= 0) return 0
+        return try {
+            SwingUtilities.convertPoint(header, 0, header.height, layered).y
+        } catch (_: Throwable) {
+            0
+        }
     }
 
     private fun removeSoloModeUI() {
-        if (rootPane == null || originalContentPane == null) return
+        if (rootPane == null) return
 
         soloModePanel?.saveSplitterProportion()
         soloModePanel?.restoreEditorComponent()
         soloModePanel?.disposeWebView()
         soloModePanel = null
-        soloContentPane = null
 
-        // 关键：在 setContentPane 前先清理坏节点， 否则会导致setContentPane失败
-        val rp = rootPane!!
-        val ocp = originalContentPane!!
-        try {
-            scanBrokenParentLinks(ocp, "before-sanitize-originalContentPane")
-            sanitizeBrokenHierarchy(ocp)
-            scanBrokenParentLinks(ocp, "after-sanitize-originalContentPane")
-        } catch (e: Exception) {
-            println("SoloMode: sanitizeBrokenHierarchy failed: ${e.javaClass.simpleName}: ${e.message}")
-            e.printStackTrace()
-        }
+        val layered = soloOverlayLayeredPane
+        val overlay = soloOverlayRoot
+        val listener = soloOverlayBoundsListener
 
-        if (rp.isDisplayable) {
+        if (listener != null) {
             try {
-                println("SoloMode: restoring contentPane, rp=${describeComponent(rp)}, ocp=${describeComponent(ocp)}")
-                rp.setContentPane(ocp)
-                println("SoloMode: setContentPane success")
-            } catch (e: Exception) {
-                println("SoloMode: setContentPane failed: ${e.javaClass.simpleName}: ${e.message}")
-                e.printStackTrace()
+                layered?.removeComponentListener(listener)
+            } catch (_: Exception) {
+            }
+            try {
+                soloOverlayHeaderForBounds?.removeComponentListener(listener)
+            } catch (_: Exception) {
             }
         }
+        soloOverlayBoundsListener = null
+        soloOverlayHeaderForBounds = null
+
+        if (layered != null && overlay != null) {
+            try {
+                layered.remove(overlay)
+            } catch (e: Exception) {
+                println("SoloMode: remove overlay failed: ${e.javaClass.simpleName}: ${e.message}")
+            }
+        }
+        soloOverlayRoot = null
+        soloOverlayLayeredPane = null
 
         frame?.revalidate()
         frame?.repaint()
 
-        originalContentPane = null
         rootPane = null
         frame = null
         editorComponent = null
@@ -552,58 +603,6 @@ class SoloModeManager(private val project: Project) : Disposable {
             if (c is Container) append(", children=${c.componentCount}")
             append("]")
         }
-    }
-
-    /**
-     * 递归清理 Swing 组件树中“还挂在 components[] 里，但 parent 已不匹配”的坏节点。
-     * 不处理会导致setContentPane的时候概率抛出异常
-     */
-    private fun sanitizeBrokenHierarchy(container: Container, path: String = container.javaClass.simpleName) {
-        for (i in container.componentCount - 1 downTo 0) {
-            val child = container.getComponent(i)
-
-            if (child.parent !== container) {
-                println(
-                    "SoloMode: sanitize remove broken child at $path -> " +
-                            "child=${describeComponent(child)}, actualParent=${describeComponent(child.parent)}"
-                )
-                try {
-                    container.remove(i)
-                } catch (e: Exception) {
-                    println("SoloMode: sanitize remove failed: ${e.javaClass.simpleName}: ${e.message}")
-                }
-                continue
-            }
-
-            if (child is Container) {
-                sanitizeBrokenHierarchy(child, "$path/${child.javaClass.simpleName}")
-            }
-        }
-    }
-
-    /**
-     * 可选：专门打印坏链路，方便确认是不是还有别的坏节点。
-     */
-    private fun scanBrokenParentLinks(root: Component?, tag: String) {
-        println("SoloMode: scanBrokenParentLinks [$tag]")
-
-        fun walk(c: Component?) {
-            if (c !is Container) return
-            for (i in 0 until c.componentCount) {
-                val child = c.getComponent(i)
-                if (child.parent !== c) {
-                    println(
-                        "SoloMode: BROKEN LINK " +
-                                "container=${describeComponent(c)}, " +
-                                "child=${describeComponent(child)}, " +
-                                "child.parent=${describeComponent(child.parent)}"
-                    )
-                }
-                walk(child)
-            }
-        }
-
-        walk(root)
     }
 
     private fun restoreUIComponents() {
