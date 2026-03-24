@@ -75,6 +75,34 @@ class ShortcutBlockerService(
             IdeActions.ACTION_EDITOR_DELETE_LINE,
             IdeActions.ACTION_EDITOR_DELETE_TO_WORD_END,
             IdeActions.ACTION_EDITOR_DELETE_TO_WORD_START,
+            IdeActions.ACTION_COMMENT_LINE, // Ctrl+/ 行注释
+            IdeActions.ACTION_EDITOR_UNINDENT_SELECTION,
+            IdeActions.ACTION_EDITOR_INDENT_SELECTION,
+
+            // 补充放行（换行、Tab/Insert、方向键与 Page、带选择移动等键盘操作）
+            IdeActions.ACTION_EDITOR_ENTER,
+            IdeActions.ACTION_EDITOR_START_NEW_LINE,
+            IdeActions.ACTION_EDITOR_SPLIT,
+            IdeActions.ACTION_EDITOR_TAB,
+            IdeActions.ACTION_EDITOR_TOGGLE_OVERWRITE_MODE,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_UP,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_DOWN,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_UP_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_DOWN_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_LEFT_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_RIGHT_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_UP,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_DOWN,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_UP_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_MOVE_CARET_PAGE_DOWN_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_TEXT_START_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_TEXT_END_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_MOVE_LINE_START_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_MOVE_LINE_END_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_PREVIOUS_WORD_WITH_SELECTION,
+            IdeActions.ACTION_EDITOR_NEXT_WORD_WITH_SELECTION,
         )
     }
 
