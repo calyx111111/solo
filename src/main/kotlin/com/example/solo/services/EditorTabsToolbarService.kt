@@ -1,14 +1,18 @@
 package com.example.solo.services
 
+import com.example.solo.SoloModePanel
 import com.example.solo.actions.ToggleProjectPanelAction
+import com.example.solo.actions.scaledTo
+import com.intellij.openapi.util.IconLoader
+import com.intellij.ui.JBColor
+import com.intellij.util.ui.JBUI
 import com.intellij.ide.actions.TabListAction
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.actionSystem.impl.ActionToolbarImpl
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import java.awt.Component
@@ -16,8 +20,8 @@ import java.awt.Container
 import java.awt.event.ContainerEvent
 import java.awt.event.ContainerListener
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.swing.JComponent
-import javax.swing.SwingUtilities
+import java.awt.BorderLayout
+import javax.swing.*
 
 @Service(Service.Level.PROJECT)
 class EditorTabsToolbarService(
@@ -26,6 +30,7 @@ class EditorTabsToolbarService(
 
     companion object {
         private const val PLACEHOLDER_NAME = "SoloTabsMoreToolbarPlaceholder"
+        private const val SOLO_MD_SEPARATOR_NAME = "SoloTabsMoreToolbarMdSeparator"
     }
 
     private var rootProvider: (() -> Component?)? = null
@@ -171,13 +176,18 @@ class EditorTabsToolbarService(
             }
         }
 
+        if (toolbar.components.any { isMarkdownPreviewLayoutButton(it) }) {
+            ensureMdSeparator(toolbar)
+        }
+
         val placeholder = ensurePlaceholder(toolbar)
 
         toolbar.components.forEach { child ->
-            if (child === placeholder) {
-                child.isVisible = true
-            } else {
-                child.isVisible = false
+            when {
+                child === placeholder -> child.isVisible = true
+                isSoloMdSeparator(child) -> child.isVisible = true
+                isMarkdownPreviewLayoutButton(child) -> child.isVisible = true
+                else -> child.isVisible = false
             }
         }
 
@@ -191,10 +201,10 @@ class EditorTabsToolbarService(
         val placeholder = findPlaceholderInToolbar(toolbar)
 
         toolbar.components.forEach { child ->
-            if (child === placeholder) {
-                child.isVisible = false
-            } else {
-                child.isVisible = true
+            when {
+                child === placeholder -> child.isVisible = false
+                isSoloMdSeparator(child) -> child.isVisible = false
+                else -> child.isVisible = true
             }
         }
 
@@ -211,6 +221,47 @@ class EditorTabsToolbarService(
         val placeholder = createFixedPlaceholder(toolbar)
         toolbar.add(placeholder)
         return placeholder
+    }
+
+    private fun ensureMdSeparator(toolbar: ActionToolbarImpl): JComponent {
+        val existing = findMdSeparatorInToolbar(toolbar)
+        if (existing != null) return existing
+
+        val strutSize = JBUI.scale(6)
+        val line = JSeparator(SwingConstants.VERTICAL).apply {
+            isOpaque = false
+        }
+        val wrapper = object : JPanel(BorderLayout()) {
+            override fun isVisible(): Boolean {
+                return super.isVisible() && enabled.get() && SoloModePanel.isProjectCollapsed(project)
+            }
+        }.apply {
+            name = SOLO_MD_SEPARATOR_NAME
+            add(Box.createHorizontalStrut(strutSize), BorderLayout.WEST)
+            add(line, BorderLayout.CENTER)
+            add(Box.createHorizontalStrut(strutSize), BorderLayout.EAST)
+            isOpaque = false
+            isVisible = true
+            minimumSize = JBUI.size(14, 20)
+            preferredSize = JBUI.size(14, 24)
+            maximumSize = JBUI.size(14, 24)
+        }
+        toolbar.add(wrapper)
+        return wrapper
+    }
+
+    private fun findMdSeparatorInToolbar(toolbar: ActionToolbarImpl): JComponent? {
+        toolbar.components.forEach { child ->
+            if (isSoloMdSeparator(child)) {
+                return child as? JComponent
+            }
+        }
+        return null
+    }
+
+    private fun isSoloMdSeparator(component: Component?): Boolean {
+        val jc = component as? JComponent ?: return false
+        return jc.name == SOLO_MD_SEPARATOR_NAME
     }
 
     private fun findPlaceholderInToolbar(toolbar: ActionToolbarImpl): JComponent? {
@@ -232,24 +283,49 @@ class EditorTabsToolbarService(
         return button.action is TabListAction
     }
 
+    private fun isMarkdownPreviewLayoutButton(component: Component?): Boolean {
+        val button = component as? ActionButton ?: return false
+        val className = button.action.javaClass.name
+        return className.startsWith("com.intellij.openapi.fileEditor.ChangePreviewLayoutAction$")
+    }
+
     private fun createFixedPlaceholder(toolbar: ActionToolbarImpl): JComponent {
-        val actionGroup = DefaultActionGroup().apply {
-            add(ToggleProjectPanelAction(project, ToggleProjectPanelAction.DisplayMode.COLLAPSED))
+        val baseIcon = IconLoader.getIcon("/icon/toggle_right.svg", javaClass).scaledTo(16, 16)
+        val presentation = Presentation().apply {
+            icon = IconLoader.getDarkIcon(baseIcon, !JBColor.isBright())
+            text = "Show Project"
+            description = "Show Project Panel"
+            isEnabled = true
+            isVisible = true
         }
 
-        val miniToolbar = ActionManager.getInstance().createActionToolbar(
-            "SoloTabsMoreToolbarReplacement",
-            actionGroup,
-            true
-        )
+        val action = ToggleProjectPanelAction(project, ToggleProjectPanelAction.DisplayMode.COLLAPSED)
 
-        miniToolbar.setReservePlaceAutoPopupIcon(false)
-        miniToolbar.targetComponent = toolbar.targetComponent ?: (toolbar.parent as? JComponent)
+        val button = ActionButton(
+            action,
+            presentation,
+            toolbar.place.ifBlank { ActionPlaces.UNKNOWN },
+            toolbar.minimumButtonSize
+        ).apply {
+            isOpaque = false
+            border = JBUI.Borders.empty()
+            isVisible = true
+        }
 
-        return miniToolbar.component.apply {
+        return object : JPanel(BorderLayout()) {
+            override fun isVisible(): Boolean {
+                return super.isVisible() && enabled.get() && SoloModePanel.isProjectCollapsed(project)
+            }
+        }.apply {
             name = PLACEHOLDER_NAME
             isOpaque = false
             isVisible = false
+            border = JBUI.Borders.empty()
+            add(button, BorderLayout.CENTER)
+
+            preferredSize = button.preferredSize
+            minimumSize = button.minimumSize
+            maximumSize = button.maximumSize
         }
     }
 
