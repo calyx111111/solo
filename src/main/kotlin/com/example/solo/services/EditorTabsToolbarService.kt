@@ -17,12 +17,14 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import java.awt.Component
 import java.awt.Container
-import java.awt.event.ContainerEvent
-import java.awt.event.ContainerListener
 import java.util.concurrent.atomic.AtomicBoolean
 import java.awt.BorderLayout
 import javax.swing.*
 
+/**
+ * Solo 模式下改造编辑器 Tabs 右侧 “更多” 工具栏；通过 [enable]/[disable] 控制。
+ * Tab 变化依赖 [FileEditorChangeDispatcher]，与 [EditorTabDragLockService] 相同，不在此挂 ContainerListener。
+ */
 @Service(Service.Level.PROJECT)
 class EditorTabsToolbarService(
     private val project: Project
@@ -38,100 +40,51 @@ class EditorTabsToolbarService(
     private var installed = false
     private var currentRoot: Container? = null
     private var tabChangeCallback: (() -> Unit)? = null
-    private val observedContainers = LinkedHashSet<Container>()
-
-    private val containerListener = object : ContainerListener {
-        override fun componentAdded(e: ContainerEvent) {
-            val child = e.child ?: return
-
-            if (child is Container) {
-                installContainerListenersRecursively(child)
-            }
-
-            SwingUtilities.invokeLater {
-                if (enabled.get()) {
-                    processSubtree(child, enableMode = true)
-                } else {
-                    processSubtree(child, enableMode = false)
-                }
-            }
-        }
-
-        override fun componentRemoved(e: ContainerEvent) {
-            val child = e.child ?: return
-            if (child is Container) {
-                uninstallContainerListenersRecursively(child)
-            }
-        }
-    }
 
     fun install(rootProvider: () -> Component?) {
         this.rootProvider = rootProvider
-        if (installed) {
+
+        if (!installed) {
+            installed = true
+            currentRoot = safeGetRootContainer()
+
+            val callback: () -> Unit = { refreshWhenTabsChanged() }
+            tabChangeCallback = callback
+            project.service<FileEditorChangeDispatcher>().addCallback(callback)
+        } else {
             rebindRootIfNeeded()
-            return
         }
-        installed = true
-
-        currentRoot = rootProvider() as? Container
-        currentRoot?.let { installContainerListenersRecursively(it) }
-
-        val callback: () -> Unit = { scheduleRefresh() }
-        tabChangeCallback = callback
-        project.service<FileEditorChangeDispatcher>().addCallback(callback)
-
-        println("EditorTabsMoreToolbarController: installed")
-    }
-
-    fun rebindRootIfNeeded() {
-        val provider = rootProvider ?: return
-        val newRoot = provider() as? Container
-
-        if (newRoot === currentRoot) {
-            refreshNow()
-            return
-        }
-
-        currentRoot?.let { uninstallContainerListenersRecursively(it) }
-        currentRoot = newRoot
-        currentRoot?.let { installContainerListenersRecursively(it) }
-
-        refreshNow()
     }
 
     fun enable() {
-        if (!installed) return
-
-        if (enabled.compareAndSet(false, true)) {
-            println("EditorTabsMoreToolbarController: enabled")
-            refreshNow()
-        }
+        if (!installed || project.isDisposed) return
+        enabled.set(true)
+        refreshNow()
     }
 
     fun disable() {
-        if (enabled.compareAndSet(true, false)) {
-            println("EditorTabsMoreToolbarController: disabled")
-            refreshNow()
-        }
+        if (!installed || project.isDisposed) return
+        enabled.set(false)
+        refreshNow()
     }
 
     fun isEnabled(): Boolean = enabled.get()
 
     override fun dispose() {
-        if (!installed) return
         installed = false
-
         enabled.set(false)
-        refreshNow()
 
         tabChangeCallback?.let { project.service<FileEditorChangeDispatcher>().removeCallback(it) }
         tabChangeCallback = null
 
-        currentRoot?.let { uninstallContainerListenersRecursively(it) }
-        currentRoot = null
-        observedContainers.clear()
+        refreshNow()
 
-        println("EditorTabsMoreToolbarController: disposed")
+        currentRoot = null
+        rootProvider = null
+    }
+
+    private fun refreshWhenTabsChanged() {
+        scheduleRefresh()
     }
 
     private fun scheduleRefresh() {
@@ -142,8 +95,27 @@ class EditorTabsToolbarService(
 
     private fun refreshNow() {
         ApplicationManager.getApplication().invokeLater {
-            val root = rootProvider?.invoke() ?: return@invokeLater
+            if (project.isDisposed) return@invokeLater
+            val root = currentRoot ?: safeGetRootContainer() ?: return@invokeLater
             processSubtree(root, enableMode = enabled.get())
+        }
+    }
+
+    private fun rebindRootIfNeeded() {
+        if (!installed || project.isDisposed) return
+
+        val newRoot = safeGetRootContainer()
+        if (newRoot === currentRoot) return
+
+        currentRoot = newRoot
+    }
+
+    private fun safeGetRootContainer(): Container? {
+        val provider = rootProvider ?: return null
+        return try {
+            provider.invoke() as? Container
+        } catch (_: Throwable) {
+            null
         }
     }
 
@@ -326,36 +298,6 @@ class EditorTabsToolbarService(
             preferredSize = button.preferredSize
             minimumSize = button.minimumSize
             maximumSize = button.maximumSize
-        }
-    }
-
-    private fun installContainerListenersRecursively(container: Container) {
-        if (!observedContainers.add(container)) return
-
-        try {
-            container.addContainerListener(containerListener)
-        } catch (_: Throwable) {
-        }
-
-        container.components.forEach {
-            if (it is Container) {
-                installContainerListenersRecursively(it)
-            }
-        }
-    }
-
-    private fun uninstallContainerListenersRecursively(container: Container) {
-        if (!observedContainers.remove(container)) return
-
-        try {
-            container.removeContainerListener(containerListener)
-        } catch (_: Throwable) {
-        }
-
-        container.components.forEach {
-            if (it is Container) {
-                uninstallContainerListenersRecursively(it)
-            }
         }
     }
 

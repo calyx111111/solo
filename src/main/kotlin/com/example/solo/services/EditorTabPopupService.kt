@@ -11,18 +11,17 @@ import com.intellij.openapi.project.Project
 import java.awt.Component
 import java.awt.Container
 import java.awt.Point
-import java.awt.event.ContainerEvent
-import java.awt.event.ContainerListener
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.util.Collections
-import java.util.LinkedHashSet
-import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.JComponent
 import javax.swing.MenuSelectionManager
 import javax.swing.SwingUtilities
 
+/**
+ * Solo 模式下在编辑器 Tab 上提供白名单右键菜单；通过 [enable]/[disable] 控制是否拦截弹出。
+ * Tab / 编辑器结构变化依赖 [FileEditorChangeDispatcher]（与 [EditorTabDragLockService] 相同），不在此挂 ContainerListener。
+ */
 @Service(Service.Level.PROJECT)
 class EditorTabPopupService(
     private val project: Project
@@ -33,29 +32,6 @@ class EditorTabPopupService(
     private var installed = false
     private var currentRoot: Container? = null
     private var tabChangeCallback: (() -> Unit)? = null
-
-    /**
-     * 已安装过 ContainerListener 的容器
-     */
-    private val observedContainers = LinkedHashSet<Container>()
-
-    /**
-     * 只用于"防重复安装 listener"，不要强引用 tabLabel
-     */
-    private val observedTabLabels: MutableSet<JComponent> =
-        Collections.newSetFromMap(WeakHashMap())
-
-    /**
-     * dispose 时需要统一 remove listener，所以这里仍然保留映射。
-     * 运行期不主动 detach，不做 cleanupDetachedTabListeners。
-     */
-    private val installedPopupListeners = WeakHashMap<JComponent, MouseAdapter>()
-
-    /**
-     * 防抖：避免短时间重复 refresh
-     */
-    @Volatile
-    private var refreshScheduled = false
 
     /**
      * 白名单 action id
@@ -82,46 +58,12 @@ class EditorTabPopupService(
 //        "SomeEditorTabPopupGroup"
     )
 
-    private val containerListener = object : ContainerListener {
-        override fun componentAdded(e: ContainerEvent) {
-            if (!installed || project.isDisposed) return
-
-            val child = e.child ?: return
-
-            if (child is Container) {
-                installContainerListenersRecursively(child)
-            }
-
-            SwingUtilities.invokeLater {
-                if (!installed || project.isDisposed) return@invokeLater
-                attachPopupListenersInSubtree(child)
-            }
-        }
-
-        override fun componentRemoved(e: ContainerEvent) {
-            if (!installed || project.isDisposed) return
-
-            val child = e.child ?: return
-
-            if (child is Container) {
-                uninstallContainerListenersRecursively(child)
-            }
-
-            // 不主动 detach tab listener
-        }
-    }
-
     fun install(rootProvider: () -> Component?) {
         this.rootProvider = rootProvider
 
         if (!installed) {
             installed = true
-
             currentRoot = safeGetRootContainer()
-            currentRoot?.let {
-                installContainerListenersRecursively(it)
-                attachPopupListenersInSubtree(it)
-            }
 
             val callback: () -> Unit = { scheduleRefresh() }
             tabChangeCallback = callback
@@ -129,13 +71,12 @@ class EditorTabPopupService(
         } else {
             rebindRootIfNeeded()
         }
-
-        scheduleRefresh()
     }
 
     fun enable() {
         if (!installed || project.isDisposed) return
         enabled.set(true)
+        scheduleRefresh()
     }
 
     fun disable() {
@@ -148,41 +89,25 @@ class EditorTabPopupService(
     override fun dispose() {
         installed = false
         enabled.set(false)
-        refreshScheduled = false
 
         tabChangeCallback?.let { project.service<FileEditorChangeDispatcher>().removeCallback(it) }
         tabChangeCallback = null
 
-        currentRoot?.let { uninstallContainerListenersRecursively(it) }
+        val root = currentRoot ?: safeGetRootContainer()
         currentRoot = null
-        observedContainers.clear()
+        if (root != null) {
+            removeOurPopupListenersInSubtree(root)
+        }
 
-        uninstallAllTabMouseListeners()
-
-        observedTabLabels.clear()
         rootProvider = null
     }
 
     private fun scheduleRefresh() {
-        if (!installed || project.isDisposed) return
-        if (refreshScheduled) return
-
-        refreshScheduled = true
         ApplicationManager.getApplication().invokeLater {
-            refreshScheduled = false
-
             if (!installed || project.isDisposed) return@invokeLater
-            refreshNow()
+            val root = currentRoot ?: safeGetRootContainer() ?: return@invokeLater
+            attachPopupListenersInSubtree(root)
         }
-    }
-
-    private fun refreshNow() {
-        if (!installed || project.isDisposed) return
-
-        rebindRootIfNeeded()
-
-        val root = currentRoot ?: return
-        attachPopupListenersInSubtree(root)
     }
 
     private fun rebindRootIfNeeded() {
@@ -191,12 +116,7 @@ class EditorTabPopupService(
         val newRoot = safeGetRootContainer()
         if (newRoot === currentRoot) return
 
-        currentRoot?.let { uninstallContainerListenersRecursively(it) }
         currentRoot = newRoot
-        currentRoot?.let {
-            installContainerListenersRecursively(it)
-            attachPopupListenersInSubtree(it)
-        }
     }
 
     private fun safeGetRootContainer(): Container? {
@@ -217,35 +137,43 @@ class EditorTabPopupService(
     }
 
     private fun attachPopupListenerToTabLabel(tabLabel: JComponent) {
-        if (!observedTabLabels.add(tabLabel)) return
-
-        val listener = object : MouseAdapter() {
-            override fun mousePressed(e: MouseEvent) {
-                handlePopup(tabLabel, e)
-            }
-
-            override fun mouseReleased(e: MouseEvent) {
-                handlePopup(tabLabel, e)
-            }
+        val already = tabLabel.mouseListeners.firstOrNull { it is SoloEditorTabPopupMouseListener } as? SoloEditorTabPopupMouseListener
+        if (already != null) {
+            return
         }
+
+        val listener = SoloEditorTabPopupMouseListener(tabLabel)
 
         try {
             tabLabel.addMouseListener(listener)
-            installedPopupListeners[tabLabel] = listener
         } catch (_: Throwable) {
-            observedTabLabels.remove(tabLabel)
         }
     }
 
-    private fun uninstallAllTabMouseListeners() {
-        val entries = installedPopupListeners.entries.toList()
-        installedPopupListeners.clear()
-
-        for ((tabLabel, listener) in entries) {
-            try {
-                tabLabel.removeMouseListener(listener)
-            } catch (_: Throwable) {
+    private fun removeOurPopupListenersInSubtree(component: Component) {
+        traverse(component) { c ->
+            val jc = c as? JComponent ?: return@traverse
+            if (!isEditorTabLabel(jc)) return@traverse
+            val ours = jc.mouseListeners.filterIsInstance<SoloEditorTabPopupMouseListener>()
+            for (l in ours) {
+                try {
+                    jc.removeMouseListener(l)
+                } catch (_: Throwable) {
+                }
             }
+        }
+    }
+
+    /** 用于在 [JComponent.mouseListeners] 中识别本服务注册的监听，避免重复 add。 */
+    private inner class SoloEditorTabPopupMouseListener(
+        private val tabLabel: JComponent
+    ) : MouseAdapter() {
+        override fun mousePressed(e: MouseEvent) {
+            handlePopup(tabLabel, e)
+        }
+
+        override fun mouseReleased(e: MouseEvent) {
+            handlePopup(tabLabel, e)
         }
     }
 
@@ -328,36 +256,6 @@ class EditorTabPopupService(
         if (className.contains("EditorTabLabel")) return true
 
         return false
-    }
-
-    private fun installContainerListenersRecursively(container: Container) {
-        if (!observedContainers.add(container)) return
-
-        try {
-            container.addContainerListener(containerListener)
-        } catch (_: Throwable) {
-        }
-
-        container.components.forEach {
-            if (it is Container) {
-                installContainerListenersRecursively(it)
-            }
-        }
-    }
-
-    private fun uninstallContainerListenersRecursively(container: Container) {
-        if (!observedContainers.remove(container)) return
-
-        try {
-            container.removeContainerListener(containerListener)
-        } catch (_: Throwable) {
-        }
-
-        container.components.forEach {
-            if (it is Container) {
-                uninstallContainerListenersRecursively(it)
-            }
-        }
     }
 
     private fun traverse(component: Component, visit: (Component) -> Unit) {
