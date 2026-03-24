@@ -180,7 +180,7 @@ class EmptyEditorHeaderService(
 
             override fun preferredLayoutSize(parent: Container) = centerComponent.preferredSize
 
-            override fun minimumLayoutSize(parent: Container) = preferredLayoutSize(parent)
+            override fun minimumLayoutSize(parent: Container) = centerComponent.minimumSize
 
             override fun layoutContainer(parent: Container) {
                 val w = parent.width.coerceAtLeast(0)
