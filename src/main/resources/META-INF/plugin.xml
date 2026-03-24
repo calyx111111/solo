@@ -1,29 +1,21 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
-    <id>com.example.solo</id>
+    <id>com.huawei.deveco.agentic-mode</id>
 
     <!-- Public plugin name should be written in Title Case.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-name -->
-    <name>Solo</name>
+    <name>DevEco Studio Agentic Mode</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor email="support@yourcompany.com" url="https://www.yourcompany.com">YourCompany</vendor>
+    <vendor>Huawei</vendor>
 
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
     <description><![CDATA[
-    A plugin that provides a focused editing mode similar to IntelliJ IDEA's Zen Mode.
-    Features:
-    <ul>
-        <li>Toggle between standard mode and solo mode</li>
-        <li>Custom panel with quick actions</li>
-        <li>Main editor area with splitter support</li>
-        <li>Hide all UI distractions in solo mode</li>
-        <li>Keyboard shortcut support (Ctrl+Shift+F12)</li>
-        <li>Persistent mode state across IDE restarts</li>
-    </ul>
+    DevEco Studio 智慧模式是DevEco Studio 智能编程工具，支持需求分析、架构设计、任务规划、代码生成、编译报错修复、UI意图校验、运行时校验修复、MCP接入、Skill接入等能力，
+    让开发者在一个界面中完成全流程工作，帮助开发者更高效的开发应用。
   ]]></description>
 
     <!-- Product and plugin compatibility requirements.
