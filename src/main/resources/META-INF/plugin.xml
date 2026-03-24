@@ -39,9 +39,6 @@
         <!-- Project-level service for solo mode management -->
         <projectService serviceImplementation="com.example.solo.SoloModeManager"/>
 
-        <!-- Project-level service for EditorTabs repair on first use -->
-        <projectService serviceImplementation="com.example.solo.EditorTabsRepairService"/>
-
         <!-- Start backend when IDE/project loads; Solo mode uses this shared backend. Must run before SoloModeStartupActivity. -->
         <applicationService serviceImplementation="com.example.solo.vcoder.agent.GlobalBackendService"/>
         <postStartupActivity id="com.example.solo.BackendProjectActivity" order="first"

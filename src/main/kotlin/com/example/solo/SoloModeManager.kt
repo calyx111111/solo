@@ -3,6 +3,7 @@ package com.example.solo
 import com.example.solo.actions.SoloModeToggleButton
 import com.example.solo.actions.ToggleEditorButton
 import com.example.solo.actions.ToggleSessionAction
+import com.example.solo.services.EditorTabDragLockService
 import com.example.solo.services.EditorTabPopupService
 import com.example.solo.services.EditorTabsRepairService
 import com.example.solo.services.EditorTabsToolbarService
@@ -66,6 +67,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         if (editorsSplitters == null) return
         project.service<EditorTabsToolbarService>().install { editorsSplitters }
         project.service<EditorTabPopupService>().install { editorsSplitters }
+        project.service<EditorTabDragLockService>().install { editorsSplitters }
         project.service<EmptyEditorHeaderService>().install { editorsSplitters }
     }
 
@@ -106,6 +108,7 @@ class SoloModeManager(private val project: Project) : Disposable {
                         project.service<EditorTabsToolbarService>().enable()
                         project.service<EditorPopupService>().enable()
                         project.service<EditorTabPopupService>().enable()
+                        project.service<EditorTabDragLockService>().enable()
                         project.service<EmptyEditorHeaderService>().enable()
 
                         SoloModeState.getInstance(project).isSoloModeEnabled = true
@@ -139,6 +142,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         project.service<EditorTabsToolbarService>().disable()
         project.service<EditorPopupService>().disable()
         project.service<EditorTabPopupService>().disable()
+        project.service<EditorTabDragLockService>().disable()
         project.service<EmptyEditorHeaderService>().disable()
 
         try {

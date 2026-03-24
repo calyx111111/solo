@@ -12,7 +12,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * 共享的 FileEditorManagerListener 分发器。
  * 仅订阅一次 FILE_EDITOR_MANAGER，将 tab 变化事件分发给多个回调，供 EditorTabsRepairService、
- * EmptyEditorHeaderService、EditorTabsToolbarService、EditorTabPopupService 等复用。
+ * EmptyEditorHeaderService、EditorTabsToolbarService、EditorTabPopupService、EditorTabDragLockService 等复用。
  */
 @Service(Service.Level.PROJECT)
 class FileEditorChangeDispatcher(private val project: Project) : Disposable {
