@@ -20,6 +20,7 @@ import java.util.LinkedHashSet
 import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.JComponent
+import javax.swing.MenuSelectionManager
 import javax.swing.SwingUtilities
 
 @Service(Service.Level.PROJECT)
@@ -270,8 +271,15 @@ class EditorTabPopupService(
             .createActionPopupMenu(ActionPlaces.EDITOR_POPUP, wrappedGroup)
 
         val point = normalizePointForComponent(tabLabel, mouseEvent)
-        popupMenu.component.show(tabLabel, point.x, point.y)
+
+        // 与 EditorTabLabel 上平台自带的 MouseListener 同级；consume() 不能阻止对方在同一事件里先弹出菜单。
+        // 弹出前 clear，把已经激活的菜单清除，避免闪烁弹出原本的右键菜单
+        SwingUtilities.invokeLater {
+            MenuSelectionManager.defaultManager().clearSelectedPath()
+            popupMenu.component.show(tabLabel, point.x, point.y)
+        }
     }
+
 
     /**
      * 不同平台版本 group id 可能不一样，这里多试几个
