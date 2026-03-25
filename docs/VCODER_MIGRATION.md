@@ -176,7 +176,7 @@ smart-mode 不构建 frontend/backend，所有 webview 和 ts-backend 均从 spe
 4. 同级 spec_vcoder 的 backend：`{项目父目录}/spec_vcoder/backend` 或 `spec_vcoder-spec_vcoder/backend`
 5. 插件资源中的 `ts-backend`（构建时从 spec_vcoder 复制）
 
-**配置路径**：使用 in-project backend 时，以 backend 目录为 workspace，读取 `backend/.vcoder_ts/config.json`，与手动 `cd backend && npm run dev` 行为一致，避免使用项目根 `.vcoder_ts` 中可能不同的 API key 或默认模型。
+**配置路径**：用户级配置统一保存在用户目录下的 `vcoder/config.json`。使用 in-project backend 时，后端仍以 backend 目录作为 workspace 处理工程相关数据；模型配置、API key 等用户级配置已经统一，不再按工程目录拆分存放。
 
 **环境变量**：若后端目录存在 `.env`，会自动加载（需 Node 20+）。
 
@@ -188,7 +188,7 @@ smart-mode 不构建 frontend/backend，所有 webview 和 ts-backend 均从 spe
 - **已做修复**：
   1. 进程崩溃后自动重试：进入 Solo 模式时会检测并重试
   2. Windows 下自动查找 Node：若 PATH 中无 node，会尝试 `Program Files\nodejs\node.exe` 等
-  3. 缩短提取路径：Windows 下提取到 `%USERPROFILE%\.vcoder-ts\`，减少 MAX_PATH 风险
+  3. 缩短提取路径：Windows 下提取到 `%USERPROFILE%\.vcoder\`，减少 MAX_PATH 风险
   4. 继承 CONSOLE 环境：子进程继承完整控制台环境变量（PATH 等）
   5. Node 预检：启动前运行 `node -e "console.log('ok')"`，失败则提示
   6. 使用相对路径：`dist/index.js` 替代绝对路径，避免路径问题
@@ -220,5 +220,5 @@ smart-mode 不构建 frontend/backend，所有 webview 和 ts-backend 均从 spe
 
 **Q：发起会话返回 402 Insufficient Balance**
 
-- **原因**：项目根 `.vcoder_ts/config.json` 与 `backend/.vcoder_ts/config.json` 可能使用不同的 API key 或默认模型。插件若以项目根为 workspace，会读取前者，若该 key 余额不足则报 402。
-- **解决**：使用 in-project backend 时，插件会自动以 backend 目录为 workspace，读取 `backend/.vcoder_ts/config.json`，与手动 `cd backend && npm run dev` 行为一致。确保 `backend/.vcoder_ts/config.json` 中配置了可用的 API key 或本地模型。
+- **原因**：历史版本曾同时使用项目根与 backend 目录下的不同配置文件，导致 API key 或默认模型不一致。当前版本已统一为用户级 `vcoder/config.json`；若仍出现 402，通常是该用户级配置中的 key 不可用或余额不足。
+- **解决**：检查用户目录下的 `vcoder/config.json` 是否配置了可用的 API key 或本地模型；若使用 in-project backend，工程相关数据仍按 backend workspace 处理，但用户级模型配置不再依赖工程目录内文件。

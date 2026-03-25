@@ -31,12 +31,21 @@ public class GlobalBackendService implements Disposable {
      * Get the shared agent with project context. Starts the backend on first access if not yet started.
      */
     @NotNull
+    public synchronized AgentProcessManager getAgent() {
+        return getAgent(null);
+    }
+
+    /**
+     * Get the shared agent. The first initialization may use the current project
+     * to seed the backend workspace, but the service still keeps only one global agent.
+     */
+    @NotNull
     public synchronized AgentProcessManager getAgent(@Nullable Project project) {
         if (agentManager == null) {
             agentManager = new AgentProcessManager(project);
             agentManager.startAgent();
             started = true;
-            LOG.info("Global backend started at IDE startup");
+            LOG.info("Global backend started" + (project != null ? " for project: " + project.getName() : ""));
         }
         return agentManager;
     }
@@ -44,6 +53,11 @@ public class GlobalBackendService implements Disposable {
     /**
      * Get the agent with project context and block until backend port is ready.
      */
+    @NotNull
+    public AgentProcessManager getAgentAndWaitReady() {
+        return getAgentAndWaitReady(null);
+    }
+
     @NotNull
     public AgentProcessManager getAgentAndWaitReady(@Nullable Project project) {
         AgentProcessManager agent = getAgent(project);
