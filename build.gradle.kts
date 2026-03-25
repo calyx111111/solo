@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.example"
-version = "1.0.0"
+version = "1.0.3"
 
 repositories {
     mavenCentral()
@@ -29,7 +29,7 @@ dependencies {
 // 前端构建 & 复制产物到 plugin resources
 val frontendDir = File(project.projectDir.parentFile, "smart_frontend")
 val frontendDistDir = File(frontendDir, "dist")
-val backendDir = File(project.projectDir.parentFile, "spec_vcoder")
+val backendDir = File(project.projectDir.parentFile, "smart_backend")
 val backendDistDir = File(backendDir, "dist")
 val backendNodeModulesDir = File(backendDir, "node_modules")
 val backendPackageJson = File(backendDir, "package.json")
@@ -52,7 +52,7 @@ tasks.register<Exec>("buildFrontend") {
 
 tasks.register<Exec>("buildBackend") {
     group = "build"
-    description = "Build the backend (npm run build in spec_vcoder)"
+    description = "Build the backend (npm run build in smart_backend)"
     workingDir = backendDir
 
     if (System.getProperty("os.name").lowercase().contains("windows")) {
@@ -186,14 +186,14 @@ sourceSets {
 }
 
 tasks.named<ProcessResources>("processResources") {
-    dependsOn("copyVcoderResources")
-    dependsOn("copyBackendResources")
-    dependsOn(generateBackendHash)
+   dependsOn("copyVcoderResources")
+   dependsOn("copyBackendResources")
+   dependsOn(generateBackendHash)
 }
 
 tasks.named("patchPluginXml") {
-    dependsOn("copyVcoderResources")
-    dependsOn("copyBackendResources")
+   dependsOn("copyVcoderResources")
+   dependsOn("copyBackendResources")
 
 }
 

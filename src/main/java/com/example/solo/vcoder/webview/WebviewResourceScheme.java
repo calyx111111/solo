@@ -7,8 +7,8 @@ import org.cef.CefApp;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class WebviewResourceScheme {
-    public static final String SCHEME = "http";
-    public static final String HOST = "localhost";
+    public static final String SCHEME = "https";
+    public static final String HOST = "vcoder";
     public static final String BASE_URL = SCHEME + "://" + HOST + "/";
 
     private static final Logger LOG = Logger.getInstance(WebviewResourceScheme.class);
