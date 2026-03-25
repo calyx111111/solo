@@ -302,6 +302,16 @@ public class AgentProcessManager implements Disposable {
         }
     }
 
+    public void removeEventListener(String event, WebSocketClient.EventListener listener) {
+        Set<WebSocketClient.EventListener> listeners = eventListeners.get(event);
+        if (listeners != null) {
+            listeners.remove(listener);
+        }
+        if (tsWsClient != null) {
+            tsWsClient.removeEventListener(event, listener);
+        }
+    }
+
     private void registerEventListeners(WebSocketClient client) {
         if (client == null || eventListeners.isEmpty()) return;
         eventListeners.forEach((event, listeners) -> {

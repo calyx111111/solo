@@ -30,7 +30,13 @@ import javax.swing.*
 
 class SoloModeManager(private val project: Project) : Disposable {
 
+    private data class PendingWebViewEvent(
+        val event: String,
+        val payload: String
+    )
+
     private var soloModePanel: SoloModePanel? = null
+    private val pendingWebViewEvents = ArrayDeque<PendingWebViewEvent>()
 
     private val storedToolWindowStates = mutableMapOf<String, Boolean>()
     private var wasStatusBarVisible = true
@@ -184,8 +190,30 @@ class SoloModeManager(private val project: Project) : Disposable {
         soloModePanel?.toggleEditorPanel()
     }
 
-    fun emitEventToWebView(event: String, payload: String) {
-        soloModePanel?.getWebViewPanel()?.emitEvent(event, payload)
+    fun emitEventToWebView(event: String, payload: String): Boolean {
+        val webViewPanel = soloModePanel?.getWebViewPanel()
+        if (webViewPanel == null) {
+            println("SoloMode: queue webview event -> $event")
+            pendingWebViewEvents.addLast(PendingWebViewEvent(event, payload))
+            while (pendingWebViewEvents.size > 20) {
+                pendingWebViewEvents.removeFirst()
+            }
+            return true
+        }
+        println("SoloMode: emit webview event -> $event")
+        webViewPanel.emitEvent(event, payload)
+        return true
+    }
+
+    private fun flushPendingWebViewEvents() {
+        val webViewPanel = soloModePanel?.getWebViewPanel() ?: return
+        if (pendingWebViewEvents.isNotEmpty()) {
+            println("SoloMode: flush pending webview events -> ${pendingWebViewEvents.size}")
+        }
+        while (pendingWebViewEvents.isNotEmpty()) {
+            val pendingEvent = pendingWebViewEvents.removeFirst()
+            webViewPanel.emitEvent(pendingEvent.event, pendingEvent.payload)
+        }
     }
 
     private fun storeUIStates() {
@@ -518,6 +546,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         }
 
         layered.add(overlay, JLayeredPane.POPUP_LAYER, 0)
+        flushPendingWebViewEvents()
 
         frame?.revalidate()
         frame?.repaint()

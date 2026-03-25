@@ -1,5 +1,6 @@
 package com.example.solo.vcoder.webview;
 
+import com.example.solo.services.JsCrashMonitorService;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -61,6 +62,7 @@ public class JsBridgeHandler {
                 case "get_selection" -> handleGetSelection(id);
                 case "focus_webview" -> handleFocusWebview(id, params);
                 case "switch_backend" -> handleSwitchBackend(id, params);
+                case "jscrash_ignore" -> handleJsCrashIgnore(id, params);
                 case "i18n_get_current_language" -> getCurrentLanguage(id);
                 default -> forwardToAgent(request);
             };
@@ -167,6 +169,27 @@ public class JsBridgeHandler {
         result.addProperty("backendType", "typescript");
         result.addProperty("message", "Only TypeScript backend is available");
         result.addProperty("currentBackend", "typescript");
+        return createSuccessResponse(id, result);
+    }
+
+    private String handleJsCrashIgnore(String id, JsonObject params) {
+        String target = params.has("target") ? params.get("target").getAsString() : "";
+        String summaryKey = params.has("summaryKey") ? params.get("summaryKey").getAsString() : "";
+        JsonObject result = new JsonObject();
+        if (target.isEmpty() || summaryKey.isEmpty()) {
+            result.addProperty("success", false);
+            return createSuccessResponse(id, result);
+        }
+        ApplicationManager.getApplication().invokeLater(() -> {
+            try {
+                JsCrashMonitorService service = project.getService(JsCrashMonitorService.class);
+                if (service != null) {
+                    service.markIgnored(target, summaryKey);
+                }
+            } catch (Exception ignored) {
+            }
+        });
+        result.addProperty("success", true);
         return createSuccessResponse(id, result);
     }
 
