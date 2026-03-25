@@ -40,11 +40,9 @@ tasks.register<Exec>("buildFrontend") {
     workingDir = frontendDir
 
     if (System.getProperty("os.name").lowercase().contains("windows")) {
-        commandLine("npm", "run", "install")
-        commandLine("cmd", "/c", "npm", "run", "build")
+        commandLine("C:/Windows/System32/cmd.exe", "/c", "npm install && npm run build")
     } else {
-        commandLine("npm", "run", "install")
-        commandLine("npm", "run", "build")
+        commandLine("sh", "-c", "npm install && npm run build")
     }
 
     onlyIf {
@@ -58,15 +56,13 @@ tasks.register<Exec>("buildBackend") {
     workingDir = backendDir
 
     if (System.getProperty("os.name").lowercase().contains("windows")) {
-        commandLine("npm", "run", "install")
-        commandLine("cmd", "/c", "npm", "run", "build")
+        commandLine("C:/Windows/System32/cmd.exe", "/c", "npm install && npm run build")
     } else {
-        commandLine("npm", "run", "install")
-        commandLine("npm", "run", "build")
+        commandLine("sh", "-c", "npm install && npm run build")
     }
 
     onlyIf {
-        frontendDir.resolve("package.json").exists()
+        backendDir.resolve("package.json").exists()
     }
 }
 
@@ -123,7 +119,7 @@ val generatedBackendHashResources = layout.buildDirectory.dir("generated/backend
 
 abstract class GenerateBackendHashTask : DefaultTask() {
 
-    @get:InputDirectory
+    @get:org.gradle.api.tasks.Internal
     abstract val backendDir: DirectoryProperty
 
     @get:OutputDirectory
@@ -137,7 +133,8 @@ abstract class GenerateBackendHashTask : DefaultTask() {
         val hashFile = outTsBackendDir.resolve(".backend.hash")
 
         if (!Files.isDirectory(backendRoot)) {
-            throw GradleException("ts-backend directory not found: $backendRoot")
+            logger.lifecycle("ts-backend directory not found, skipping hash generation: $backendRoot")
+            return
         }
 
         Files.createDirectories(outTsBackendDir)
@@ -230,7 +227,7 @@ tasks {
     }
 
     patchPluginXml {
-        sinceBuild.set("232")
+        sinceBuild.set("241")
         untilBuild.set("243.*")
     }
 

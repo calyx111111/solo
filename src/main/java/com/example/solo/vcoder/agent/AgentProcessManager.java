@@ -22,6 +22,7 @@ import java.io.UncheckedIOException;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -103,7 +104,6 @@ public class AgentProcessManager implements Disposable {
             }
 
             // 使用 in-project/sibling backend 时，以 backend 目录为 workspace，与手动 "cd backend && npm run dev" 行为一致
-            // 这样会读取 backend/.vcoder_ts/config.json，避免使用项目根 .vcoder_ts 中可能不同的配置（如 API key、默认模型）
             String effectiveWorkspace = workspacePath;
             boolean isRealBackendDir = "backend".equals(tsBackendDir.getFileName().toString());
             if (isRealBackendDir) {
@@ -138,12 +138,15 @@ public class AgentProcessManager implements Disposable {
                 return;
             }
 
+            Path backendLogDir = null;
             Path stdoutLogFile = null;
             try {
-                stdoutLogFile = Files.createTempFile("tsagent", ".log");
+                backendLogDir = getUserBackendLogDir();
+                Files.createDirectories(backendLogDir);
+                stdoutLogFile = backendLogDir.resolve("tsagent.log");
                 LOG.info("Backend output log: " + stdoutLogFile.toAbsolutePath());
             } catch (IOException e) {
-                LOG.warn("Could not create temp log file for backend output", e);
+                LOG.warn("Could not prepare project log file for backend output", e);
             }
             final Path logFile = stdoutLogFile;
             final String nodeCmdFinal = nodeCmd;
@@ -151,7 +154,13 @@ public class AgentProcessManager implements Disposable {
             final int tsAgentPortFinal = tsAgentPort;
             final String effectiveWorkspaceFinal = effectiveWorkspace;
 
-            GeneralCommandLine tsCommandLine = buildBackendCommandLine(nodeCmd, tsBackendDir, tsAgentPort, effectiveWorkspace, logFile);
+            GeneralCommandLine tsCommandLine = buildBackendCommandLine(
+                    nodeCmd,
+                    tsBackendDir,
+                    tsAgentPort,
+                    effectiveWorkspace,
+                    logFile
+            );
 
             tsProcessHandler = new OSProcessHandler(tsCommandLine);
             tsProcessHandler.addProcessListener(new ProcessAdapter() {
@@ -189,10 +198,7 @@ public class AgentProcessManager implements Disposable {
                                 + ". To debug: cd <backend> && node dist/index.js --port 9600 --workspace .");
                         isStarted.set(false);
                     } else if (logFile != null) {
-                        try {
-                            Files.deleteIfExists(logFile);
-                        } catch (IOException ignored) {
-                        }
+                        LOG.info("Backend output log kept at: " + logFile.toAbsolutePath());
                     }
                 }
             });
@@ -327,14 +333,14 @@ public class AgentProcessManager implements Disposable {
         }
 
         // 快路径：当前 hash 对应目录已完整存在，直接复用
-        if (Files.isRegularFile(entryPoint) && Files.isRegularFile(completeMarker)) {
+        if (Files.isRegularFile(entryPoint) && Files.isRegularFile(completeMarker) && isExtractedBackendCurrent(targetDir)) {
             LOG.info("Using cached TypeScript backend at: " + targetDir);
             return targetDir;
         }
 
         synchronized (tsBackendExtractLock) {
             // 双检，避免并发重复解压
-            if (Files.isRegularFile(entryPoint) && Files.isRegularFile(completeMarker)) {
+            if (Files.isRegularFile(entryPoint) && Files.isRegularFile(completeMarker) && isExtractedBackendCurrent(targetDir)) {
                 LOG.info("Using cached TypeScript backend at: " + targetDir);
                 return targetDir;
             }
@@ -374,6 +380,39 @@ public class AgentProcessManager implements Disposable {
                 }
                 return null;
             }
+        }
+    }
+
+    private boolean isExtractedBackendCurrent(Path targetDir) {
+        try {
+            return matchesBundledResource(targetDir, "dist/index.js")
+                    && matchesBundledResource(targetDir, "dist/paths/user_config.js");
+        } catch (IOException e) {
+            LOG.warn("Failed to validate extracted TypeScript backend, will re-extract: " + targetDir, e);
+            return false;
+        }
+    }
+
+    private boolean matchesBundledResource(Path targetDir, String relativePath) throws IOException {
+        Path extractedFile = targetDir.resolve(relativePath);
+        if (!Files.isRegularFile(extractedFile)) {
+            LOG.warn("Extracted backend file missing, will re-extract: " + extractedFile);
+            return false;
+        }
+
+        String resourcePath = "/ts-backend/" + relativePath.replace('\\', '/');
+        try (InputStream in = getClass().getResourceAsStream(resourcePath)) {
+            if (in == null) {
+                LOG.warn("Bundled backend resource missing, skip cache reuse check: " + resourcePath);
+                return false;
+            }
+            byte[] bundledBytes = in.readAllBytes();
+            byte[] extractedBytes = Files.readAllBytes(extractedFile);
+            if (!Arrays.equals(bundledBytes, extractedBytes)) {
+                LOG.warn("Extracted backend file is stale, will re-extract: " + extractedFile);
+                return false;
+            }
+            return true;
         }
     }
 
@@ -499,7 +538,7 @@ public class AgentProcessManager implements Disposable {
         if (SystemInfo.isWindows) {
             String home = System.getProperty("user.home", "");
             if (!home.isEmpty()) {
-                Path shortBase = Path.of(home, ".vcoder-ts");
+                Path shortBase = Path.of(home, ".vcoder");
                 try {
                     Files.createDirectories(shortBase);
                     return shortBase;
@@ -513,6 +552,26 @@ public class AgentProcessManager implements Disposable {
         } catch (IOException e) {
             throw new RuntimeException("Cannot create extraction dir", e);
         }
+    }
+
+    private static Path getUserBackendLogDir() {
+        if (SystemInfo.isWindows) {
+            String appData = System.getenv("APPDATA");
+            if (appData != null && !appData.isBlank()) {
+                return Path.of(appData, "vcoder", "logs", "backend");
+            }
+        }
+
+        String home = System.getProperty("user.home", "");
+        if (home.isEmpty()) {
+            return Path.of("logs", "backend");
+        }
+
+        if (SystemInfo.isMac) {
+            return Path.of(home, "Library", "Application Support", "vcoder", "logs", "backend");
+        }
+
+        return Path.of(home, ".config", "vcoder", "logs", "backend");
     }
 
     /**
