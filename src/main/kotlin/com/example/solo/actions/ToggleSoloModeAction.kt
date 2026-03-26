@@ -1,6 +1,7 @@
 package com.example.solo.actions
 
 import com.example.solo.SoloModeManager
+import com.example.solo.login.LoginManager
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -112,6 +113,15 @@ class ToggleSoloModeAction : AnAction(), CustomComponentAction {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
+
+        val isLogin = LoginManager.getInstance().hasLogin()
+        println("SoloMode: toggle solo panel, current login status ${isLogin}")
+
+        if (!isLogin) {
+            LoginManager.getInstance().login(project)
+            return
+        }
+
         SoloModeManager.getInstance(project).toggleSoloMode()
     }
 

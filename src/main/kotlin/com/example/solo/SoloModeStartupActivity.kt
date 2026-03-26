@@ -1,5 +1,6 @@
 package com.example.solo
 
+import com.example.solo.login.LoginManager
 import com.example.solo.services.EditorTabsRepairService
 import com.example.solo.services.EmptyEditorHeaderService
 import com.example.solo.services.JsCrashMonitorService
@@ -23,7 +24,9 @@ class SoloModeStartupActivity : ProjectActivity {
         // Frame/UI 可能尚未完全就绪，延后到合适时机恢复
         ToolWindowManager.getInstance(project).invokeLater {
             if (!project.isDisposed && SoloModeState.getInstance(project).isSoloModeEnabled) {
-                SoloModeManager.getInstance(project).enterSoloMode()
+                if (!LoginManager.getInstance().hasLogin()) {
+                    SoloModeManager.getInstance(project).enterSoloMode()
+                }
             }
         }
     }
