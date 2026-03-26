@@ -21,7 +21,7 @@
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
-    <depends optional="true">com.huawei.harmony</depends>
+    <depends optional="true" config-file="huawei-extensions.xml">com.huawei.harmony</depends>
 
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
@@ -59,7 +59,8 @@
                 class="com.huawei.agenticmode.actions.ToggleSessionAction"
                 text="Toggle Session"
                 description="Toggle session (placeholder)">
-            <add-to-group group-id="MainToolbarLeft" anchor="after" relative-to-action="com.huawei.agenticmode.ToggleSoloModeAction"/>
+            <add-to-group group-id="MainToolbarLeft" anchor="after"
+                          relative-to-action="com.huawei.agenticmode.ToggleSoloModeAction"/>
         </action>
         <action id="com.huawei.agenticmode.ToggleEditorAction"
                 class="com.huawei.agenticmode.actions.ToggleEditorAction"

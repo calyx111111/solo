@@ -17,7 +17,7 @@ class LoginManager {
         }
     }
 
-    private val service: LoginServiceInterface by lazy { loadService() }
+    private val service: LoginServiceInterface by lazy { loadService().also { it.init() } }
 
     private fun loadService(): LoginServiceInterface {
         return try {
