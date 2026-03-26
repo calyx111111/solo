@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import com.intellij.DynamicBundle;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.example.solo.vcoder.agent.AgentProcessManager;
 import com.example.solo.vcoder.integration.ProjectContextProvider;
@@ -15,11 +16,16 @@ import com.example.solo.vcoder.settings.DevEcoPathResolver;
 import com.example.solo.vcoder.settings.VcoderSettings;
 import org.jetbrains.annotations.NotNull;
 
+import java.awt.Desktop;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 public class JsBridgeHandler {
+    private static final Logger LOG = Logger.getInstance(JsBridgeHandler.class);
     private final Project project;
     private final AgentProcessManager agentManager;
     private final ProjectContextProvider contextProvider;
@@ -64,6 +70,7 @@ public class JsBridgeHandler {
                 case "switch_backend" -> handleSwitchBackend(id, params);
                 case "jscrash_ignore" -> handleJsCrashIgnore(id, params);
                 case "i18n_get_current_language" -> getCurrentLanguage(id);
+                case "open_link" -> handleOpenLink(id, params);
                 default -> forwardToAgent(request);
             };
         } catch (Exception e) {
@@ -191,6 +198,98 @@ public class JsBridgeHandler {
         });
         result.addProperty("success", true);
         return createSuccessResponse(id, result);
+    }
+
+    private String handleOpenLink(String id, JsonObject params) {
+        JsonObject result = new JsonObject();
+        String url = params.has("url") ? params.get("url").getAsString() : "";
+        
+        LOG.info("Received open_link request with URL: " + (url.isEmpty() ? "[empty]" : url));
+        
+        if (url.isEmpty()) {
+            LOG.warn("open_link request failed: URL is empty");
+            result.addProperty("success", false);
+            result.addProperty("error", "URL parameter is required");
+            return createErrorResponse(id, -1, "URL parameter is required");
+        }
+        
+        if (!isValidUrl(url)) {
+            LOG.warn("open_link request failed: Invalid URL format - " + url);
+            result.addProperty("success", false);
+            result.addProperty("error", "Invalid URL format");
+            return createErrorResponse(id, -1, "Invalid URL format");
+        }
+        
+        if (!isUrlSafe(url)) {
+            LOG.warn("open_link request failed: Unsafe URL detected - " + url);
+            result.addProperty("success", false);
+            result.addProperty("error", "Unsafe URL detected");
+            return createErrorResponse(id, -1, "Unsafe URL detected");
+        }
+        
+        ApplicationManager.getApplication().invokeLater(() -> {
+            try {
+                if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                    Desktop.getDesktop().browse(new URI(url));
+                    LOG.info("Successfully opened URL in default browser: " + url);
+                } else {
+                    LOG.error("Desktop browsing is not supported on this system");
+                    result.addProperty("success", false);
+                    result.addProperty("error", "Desktop browsing is not supported");
+                }
+            } catch (URISyntaxException e) {
+                LOG.error("open_link failed: Invalid URI syntax for URL - " + url, e);
+                result.addProperty("success", false);
+                result.addProperty("error", "Invalid URI syntax");
+            } catch (IOException e) {
+                LOG.error("open_link failed: IO error while opening URL - " + url, e);
+                result.addProperty("success", false);
+                result.addProperty("error", "Failed to open URL: " + e.getMessage());
+            } catch (Exception e) {
+                LOG.error("open_link failed: Unexpected error while opening URL - " + url, e);
+                result.addProperty("success", false);
+                result.addProperty("error", "Unexpected error: " + e.getMessage());
+            }
+        });
+        
+        result.addProperty("success", true);
+        result.addProperty("url", url);
+        return createSuccessResponse(id, result);
+    }
+    
+    private boolean isValidUrl(String url) {
+        if (url == null || url.isEmpty()) {
+            return false;
+        }
+        
+        try {
+            URI uri = new URI(url);
+            String scheme = uri.getScheme();
+            
+            if (scheme == null) {
+                return false;
+            }
+            
+            return true;
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
+    
+    private boolean isUrlSafe(String url) {
+        try {
+            URI uri = new URI(url);
+            String scheme = uri.getScheme();
+            
+            if (scheme == null) {
+                return false;
+            }
+            
+            String lowerScheme = scheme.toLowerCase();
+            return lowerScheme.equals("http") || lowerScheme.equals("https");
+        } catch (URISyntaxException e) {
+            return false;
+        }
     }
 
     private boolean isRemovedAction(String action) {
