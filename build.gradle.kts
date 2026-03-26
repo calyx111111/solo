@@ -15,7 +15,7 @@ plugins {
 }
 
 group = "com.huawei"
-version = "1.0.3"
+version = "1.0.4"
 
 repositories {
     mavenCentral()
@@ -247,11 +247,11 @@ tasks.register<Zip>("packagePlugin") {
     group = "build"
     description = "Package plugin JAR into installable ZIP (use when buildPlugin fails due to file lock)"
     dependsOn("jar")
-    archiveBaseName.set("solo")
+    archiveBaseName.set("agenticmode")
     archiveVersion.set(version.toString())
     destinationDirectory.set(layout.buildDirectory.dir("distributions"))
     from(tasks.jar.get().outputs.files) {
-        into("solo/lib")
+        into("agenticmode/lib")
     }
     doLast {
         println("Plugin ZIP: ${archiveFile.get().asFile.absolutePath}")

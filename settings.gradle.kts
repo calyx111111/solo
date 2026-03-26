@@ -5,4 +5,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "solo"
+rootProject.name = "agenticmode"
