@@ -109,11 +109,17 @@ class SoloModePanel(
             MouseEvent.MOUSE_PRESSED,
             MouseEvent.MOUSE_RELEASED,
             MouseEvent.MOUSE_CLICKED -> blockRightClick(mouseEvent)
+            else -> {}
         }
     }
 
     init {
-        webViewPanel = getOrCreateWebView(project, agentManager!!)
+        // 修复：安全处理可空的agentManager，避免NullPointerException
+        webViewPanel = if (agentManager != null) {
+            getOrCreateWebView(project, agentManager)
+        } else {
+            throw IllegalArgumentException("AgentManager cannot be null for SoloModePanel")
+        }
         editorPanel = JPanel(BorderLayout()).apply {
             border = JBUI.Borders.empty()
         }
@@ -169,7 +175,8 @@ class SoloModePanel(
 
     /** 从 IDE 主题获取 Separator.separatorColor，lazy 确保主题切换时自动更新 */
     private fun getSeparatorLineColor(): java.awt.Color =
-        JBColor.lazy { UIManager.getColor("Separator.separatorColor")!! }
+        // 修复：安全处理可空的UIManager颜色，避免NullPointerException
+        JBColor.lazy { UIManager.getColor("Separator.separatorColor") ?: JBColor.GRAY }
 
     private fun applyEditorBackgroundRecursively(component: Component, color: java.awt.Color) {
         component.background = color
@@ -481,6 +488,7 @@ private fun tryNavigate(project: Project, path: TreePath): Boolean {
                     return true
                 }
             }
+            else -> {}
         }
         return false
     }
@@ -513,6 +521,7 @@ private fun extractVirtualFile(path: TreePath): VirtualFile? {
             }
             if (userObject is VirtualFile) return userObject
         }
+        else -> {}
     }
 
     return null

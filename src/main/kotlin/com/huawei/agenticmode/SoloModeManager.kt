@@ -104,8 +104,8 @@ class SoloModeManager(private val project: Project) : Disposable {
 
         println("SoloMode: Entering solo mode...")
 
-        storeUIStates()
-        hideAllUIComponents()
+        storeUiStates()
+        hideAllUiComponents()
 
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
@@ -113,7 +113,7 @@ class SoloModeManager(private val project: Project) : Disposable {
                     com.huawei.agenticmode.vcoder.agent.GlobalBackendService.getInstance().getAgentAndWaitReady(project)
                 ApplicationManager.getApplication().invokeLater {
                     if (!project.isDisposed) {
-                        createSoloModeUI(agentManager)
+                        createSoloModeUi(agentManager)
 
                         project.service<ShortcutBlockerService>().enable()
                         project.service<EditorTabsToolbarService>().enable()
@@ -158,7 +158,7 @@ class SoloModeManager(private val project: Project) : Disposable {
 
         try {
             if (!project.isDisposed) {
-                removeSoloModeUI()
+                removeSoloModeUi()
                 restoreUIComponents()
             }
         } catch (e: Exception) {
@@ -216,7 +216,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         }
     }
 
-    private fun storeUIStates() {
+    private fun storeUiStates() {
         val toolWindowManager = ToolWindowManager.getInstance(project)
         for (id in toolWindowManager.toolWindowIds) {
             val toolWindow = toolWindowManager.getToolWindow(id)
@@ -326,7 +326,7 @@ class SoloModeManager(private val project: Project) : Disposable {
                 )
     }
 
-    private fun hideAllUIComponents() {
+    private fun hideAllUiComponents() {
         val toolWindowManager = ToolWindowManager.getInstance(project)
         for ((id, wasVisible) in storedToolWindowStates) {
             val toolWindow = toolWindowManager.getToolWindow(id)
@@ -485,7 +485,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         return null
     }
 
-    private fun createSoloModeUI(agentManager: com.huawei.agenticmode.vcoder.agent.AgentProcessManager) {
+    private fun createSoloModeUi(agentManager: com.huawei.agenticmode.vcoder.agent.AgentProcessManager) {
         val ideFrameComponent = ideFrame?.component ?: return
 
         frame = SwingUtilities.getWindowAncestor(ideFrameComponent)
@@ -496,7 +496,11 @@ class SoloModeManager(private val project: Project) : Disposable {
             return
         }
 
-        val content = rootPane!!.contentPane
+        // 修复：安全处理可空的contentPane，避免NullPointerException
+        val content = rootPane!!.contentPane ?: run {
+            println("SoloMode: Cannot find content pane")
+            return
+        }
 
         val editorsSplitters = findEditorsSplitters(content)
         println("SoloMode: Found editorsSplitters: $editorsSplitters")
@@ -507,7 +511,9 @@ class SoloModeManager(private val project: Project) : Disposable {
             editorComponent = editorsSplitters
             editorParent = editorsSplitters.parent
 
-            if (editorParent != null && editorParent!!.layout is BorderLayout) {
+            // 修复：安全处理可空的editorParent，避免NullPointerException
+            val currentEditorParent = editorParent
+            if (currentEditorParent != null && currentEditorParent.layout is BorderLayout) {
                 editorConstraints = BorderLayout.CENTER
             }
         }
@@ -518,7 +524,11 @@ class SoloModeManager(private val project: Project) : Disposable {
             agentManager
         )
 
-        val layered = rootPane!!.layeredPane
+        // 修复：安全处理可空的layeredPane，避免NullPointerException
+        val layered = rootPane!!.layeredPane ?: run {
+            println("SoloMode: Cannot find layered pane")
+            return
+        }
         soloOverlayLayeredPane = layered
 
         val overlay = JPanel(BorderLayout()).apply {
@@ -561,12 +571,12 @@ class SoloModeManager(private val project: Project) : Disposable {
     private fun layoutSoloOverlay(layered: JLayeredPane, overlay: Component) {
         val w = layered.width.coerceAtLeast(0)
         val h = layered.height.coerceAtLeast(0)
-        val top = headerBottomYInLayeredPane(layered).coerceIn(0, h)
-        val overlayH = (h - top).coerceAtLeast(0)
-        overlay.setBounds(0, top, w, overlayH)
+        val top = headerBottomInLayeredPane(layered).coerceIn(0, h)
+        val overLayH = (h - top).coerceAtLeast(0)
+        overlay.setBounds(0, top, w, overLayH)
     }
 
-    private fun headerBottomYInLayeredPane(layered: JLayeredPane): Int {
+    private fun headerBottomInLayeredPane(layered: JLayeredPane): Int {
         val frameComp = ideFrame?.component as? Container ?: return 0
         val header = findToolbarFrameHeader(frameComp) ?: return 0
         if (!header.isShowing || header.height <= 0) return 0
@@ -577,7 +587,7 @@ class SoloModeManager(private val project: Project) : Disposable {
         }
     }
 
-    private fun removeSoloModeUI() {
+    private fun removeSoloModeUi() {
         if (rootPane == null) return
 
         soloModePanel?.saveSplitterProportion()

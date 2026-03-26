@@ -11,16 +11,16 @@ import com.intellij.openapi.startup.ProjectActivity
  */
 class BackendProjectActivity : ProjectActivity {
     companion object {
-        private val LOG = Logger.getInstance(BackendProjectActivity::class.java)
+        private val log = Logger.getInstance(BackendProjectActivity::class.java)
     }
 
     override suspend fun execute(project: Project) {
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 com.huawei.agenticmode.vcoder.agent.GlobalBackendService.getInstance().getAgent(project)
-                LOG.info("Backend started at project startup")
+                log.info("Backend started at project startup")
             } catch (e: Exception) {
-                LOG.warn("Failed to start backend at project startup: ${e.message}", e)
+                log.warn("Failed to start backend at project startup: ${e.message}", e)
             }
         }
     }

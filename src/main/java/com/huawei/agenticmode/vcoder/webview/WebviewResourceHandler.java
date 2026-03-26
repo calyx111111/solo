@@ -80,10 +80,14 @@ public class WebviewResourceHandler extends CefResourceHandlerAdapter {
     }
 
     private void closeQuietly() {
-        if (closed) return;
+        if (closed) {
+            return;
+        }
         closed = true;
         try {
-            if (inputStream != null) inputStream.close();
+            if (inputStream != null) {
+                inputStream.close();
+            }
         } catch (IOException ignored) {
         }
     }

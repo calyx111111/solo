@@ -48,7 +48,7 @@ class EmptyEditorHeaderService(
     /** JLayeredPane 容器，DEFAULT 层=editor，PALETTE 层=overlay */
     private var layeredContainer: JLayeredPane? = null
 
-    private val OVERLAY_KEY = "solo.editor.empty.overlay"
+    private val overlaykey = "solo.editor.empty.overlay"
 
     init {
         val callback: () -> Unit = { onTabChanged() }
@@ -116,6 +116,7 @@ class EmptyEditorHeaderService(
             shouldShowOverlay(hasOpenFiles, centerComponent) -> {
                 showOverlay(panel)
             }
+            else -> {}
         }
     }
 
@@ -135,7 +136,7 @@ class EmptyEditorHeaderService(
     }
 
     private fun isOverlayComponent(component: Component?): Boolean {
-        return (component as? JComponent)?.getClientProperty(OVERLAY_KEY) == true
+        return (component as? JComponent)?.getClientProperty(overlaykey) == true
     }
 
     private fun hideOverlay(panel: JPanel) {
@@ -162,7 +163,7 @@ class EmptyEditorHeaderService(
 
     private fun createLayeredContainer(centerComponent: Component, overlay: JPanel): JLayeredPane {
         val layered = JLayeredPane().apply {
-            putClientProperty(OVERLAY_KEY, true)
+            putClientProperty(overlaykey, true)
         }
 
         layered.layout = createOverlayLayout(centerComponent)
@@ -248,7 +249,10 @@ class EmptyEditorHeaderService(
 
     private fun createEmptyEditorHeader(targetComponent: JComponent): JComponent {
         val editorBg = EditorColorsManager.getInstance().globalScheme.defaultBackground
-        val separatorColor = JBColor.lazy { UIManager.getColor("Separator.separatorColor")!! }
+        // 修复：安全处理可空的UIManager颜色，避免NullPointerException
+        val separatorColor = JBColor.lazy { 
+            UIManager.getColor("Separator.separatorColor") ?: JBColor.GRAY 
+        }
 
         val panel = JPanel(BorderLayout()).apply {
             background = editorBg

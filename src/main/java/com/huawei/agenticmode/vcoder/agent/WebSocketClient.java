@@ -25,8 +25,10 @@ public class WebSocketClient {
     private final String url;
     private final Gson gson = new Gson();
     private final AtomicLong messageIdCounter = new AtomicLong(0);
-    private final Map<String, CompletableFuture<String>> pendingRequests = new ConcurrentHashMap<>();
-    private final Map<String, Set<EventListener>> eventListeners = new ConcurrentHashMap<>();
+    // 修复：使用显式泛型类型声明而非菱形操作符，符合Java编码规范
+    private final Map<String, CompletableFuture<String>> pendingRequests = new ConcurrentHashMap<String, CompletableFuture<String>>();
+    // 修复：使用显式泛型类型声明而非菱形操作符，符合Java编码规范
+    private final Map<String, Set<EventListener>> eventListeners = new ConcurrentHashMap<String, Set<EventListener>>();
 
     private org.java_websocket.client.WebSocketClient client;
     private volatile boolean connected = false;
@@ -81,10 +83,16 @@ public class WebSocketClient {
     }
 
     private static boolean isConnectionRefused(Throwable t) {
-        if (t == null) return false;
-        if (t instanceof ConnectException) return true;
+        if (t == null) {
+            return false;
+        }
+        if (t instanceof ConnectException) {
+            return true;
+        }
         String msg = t.getMessage();
-        if (msg != null && msg.contains("Connection refused")) return true;
+        if (msg != null && msg.contains("Connection refused")) {
+            return true;
+        }
         return isConnectionRefused(t.getCause());
     }
 
@@ -94,7 +102,9 @@ public class WebSocketClient {
             if (json.has("id")) {
                 String id = json.get("id").getAsString();
                 CompletableFuture<String> future = pendingRequests.remove(id);
-                if (future != null) future.complete(message);
+                if (future != null) {
+                    future.complete(message);
+                }
                 return;
             }
             if (json.has("event")) {
@@ -148,12 +158,15 @@ public class WebSocketClient {
     }
 
     public void addEventListener(String event, EventListener listener) {
-        eventListeners.computeIfAbsent(event, k -> new CopyOnWriteArraySet<>()).add(listener);
+        // 修复：使用显式泛型类型声明而非菱形操作符，符合Java编码规范
+        eventListeners.computeIfAbsent(event, k -> new CopyOnWriteArraySet<EventListener>()).add(listener);
     }
 
     public void removeEventListener(String event, EventListener listener) {
         Set<EventListener> listeners = eventListeners.get(event);
-        if (listeners != null) listeners.remove(listener);
+        if (listeners != null) {
+            listeners.remove(listener);
+        }
     }
 
     public void disconnect() {

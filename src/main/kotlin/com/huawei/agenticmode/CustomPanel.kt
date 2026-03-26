@@ -17,27 +17,24 @@ class CustomPanel(private val project: Project) : JPanel(BorderLayout()) {
     
     init {
         browser = getOrCreateBrowser()
-        setupUI()
+        setupUi()
     }
     
     private fun getOrCreateBrowser(): JBCefBrowser {
+        // 修复：安全处理可空的browserInstance，避免NullPointerException
         if (browserInstance == null) {
             browserInstance = JBCefBrowser("https://www.jetbrains.com")
         }
-        return browserInstance!!
+        return browserInstance ?: throw IllegalStateException("Browser instance should not be null")
     }
     
-    private fun setupUI() {
+    private fun setupUi() {
         border = JBUI.Borders.empty()
         preferredSize = Dimension(300, 400)
         minimumSize = Dimension(200, 100)
         
         val browserComponent = browser.component
         add(browserComponent, BorderLayout.CENTER)
-    }
-    
-    fun loadURL(url: String) {
-        browser.loadURL(url)
     }
     
     fun refresh() {

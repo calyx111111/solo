@@ -12,8 +12,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.huawei.agenticmode.vcoder.agent.AgentProcessManager;
 import com.huawei.agenticmode.vcoder.integration.ProjectContextProvider;
-import com.huawei.agenticmode.vcoder.settings.DevEcoPathResolver;
-import com.huawei.agenticmode.vcoder.settings.VcoderSettings;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.Desktop;
@@ -160,7 +158,8 @@ public class JsBridgeHandler {
             ApplicationManager.getApplication().invokeLater(() -> {
                 try {
                     focusRequester.accept(reason);
-                } catch (Exception ignored) {
+                } catch (Exception e) {
+                    LOG.error("Failed to focus webview: " + e.getMessage(), e);
                 }
             });
         }
@@ -193,7 +192,8 @@ public class JsBridgeHandler {
                 if (service != null) {
                     service.markIgnored(target, summaryKey);
                 }
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LOG.error("Failed to mark JS crash as ignored for target=" + target + ", summaryKey=" + summaryKey + ": " + e.getMessage(), e);
             }
         });
         result.addProperty("success", true);
@@ -227,6 +227,10 @@ public class JsBridgeHandler {
             return createErrorResponse(id, -1, "Unsafe URL detected");
         }
         
+        // 修复：在异步操作之前设置成功状态，避免竞态条件
+        result.addProperty("success", true);
+        result.addProperty("url", url);
+        
         ApplicationManager.getApplication().invokeLater(() -> {
             try {
                 if (Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
@@ -234,26 +238,16 @@ public class JsBridgeHandler {
                     LOG.info("Successfully opened URL in default browser: " + url);
                 } else {
                     LOG.error("Desktop browsing is not supported on this system");
-                    result.addProperty("success", false);
-                    result.addProperty("error", "Desktop browsing is not supported");
                 }
             } catch (URISyntaxException e) {
                 LOG.error("open_link failed: Invalid URI syntax for URL - " + url, e);
-                result.addProperty("success", false);
-                result.addProperty("error", "Invalid URI syntax");
             } catch (IOException e) {
                 LOG.error("open_link failed: IO error while opening URL - " + url, e);
-                result.addProperty("success", false);
-                result.addProperty("error", "Failed to open URL: " + e.getMessage());
             } catch (Exception e) {
                 LOG.error("open_link failed: Unexpected error while opening URL - " + url, e);
-                result.addProperty("success", false);
-                result.addProperty("error", "Unexpected error: " + e.getMessage());
             }
         });
         
-        result.addProperty("success", true);
-        result.addProperty("url", url);
         return createSuccessResponse(id, result);
     }
     
@@ -285,8 +279,8 @@ public class JsBridgeHandler {
                 return false;
             }
             
-            String lowerScheme = scheme.toLowerCase();
-            return lowerScheme.equals("http") || lowerScheme.equals("https");
+            String lowerScheme = scheme.toLowerCase(Locale.ROOT);
+            return "http".equals(lowerScheme) || "https".equals(lowerScheme);
         } catch (URISyntaxException e) {
             return false;
         }
@@ -318,7 +312,9 @@ public class JsBridgeHandler {
             try {
                 CompletableFuture<String> future = agentManager.sendRequest(request);
                 lastResponse = future.get();
-                if (lastResponse == null) continue;
+                if (lastResponse == null) {
+                    continue;
+                }
                 if (!isRetryableError(lastResponse)) {
                     return lastResponse;
                 }
@@ -332,14 +328,18 @@ public class JsBridgeHandler {
                 }
             }
         }
-        if (lastResponse != null) return lastResponse;
+        if (lastResponse != null) {
+            return lastResponse;
+        }
         JsonObject json = JsonParser.parseString(request).getAsJsonObject();
         String id = json.has("id") ? json.get("id").getAsString() : "";
         return createErrorResponse(id, -1, "Agent request failed: " + (lastException != null ? lastException.getMessage() : "unknown"));
     }
 
     private boolean isRetryableError(String response) {
-        if (response == null) return false;
+        if (response == null) {
+            return false;
+        }
         return response.contains("未初始化") || response.contains("not initialized") || response.contains("AI未初始化");
     }
 

@@ -35,7 +35,7 @@ class ShortcutBlockerService(
 
     companion object {
         /** 内置固定白名单 */
-        val WHITELIST_ACTION_IDS: Set<String> = setOf(
+        val whitelistActionIds: Set<String> = setOf(
             ToggleSoloModeAction.ACTION_ID,
             ToggleSessionAction.ACTION_ID,
             ToggleEditorAction.ACTION_ID,
@@ -178,7 +178,7 @@ private class SoloModeShortcutBlockerAppService : Disposable {
         if (actionIds.isEmpty()) return false
 
         for (id in actionIds) {
-            if (id in ShortcutBlockerService.WHITELIST_ACTION_IDS) return false
+            if (id in ShortcutBlockerService.whitelistActionIds) return false
         }
 
         println("SoloModeShortcutBlockerService: block shortcuts: $stroke")

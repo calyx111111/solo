@@ -18,7 +18,9 @@ public final class WebviewResourceScheme {
     }
 
     public static boolean ensureRegistered() {
-        if (REGISTERED.get()) return true;
+        if (REGISTERED.get()) {
+            return true;
+        }
         try {
             if (!JBCefApp.isSupported()) {
                 LOG.warn("JCEF is not supported in current IDE");

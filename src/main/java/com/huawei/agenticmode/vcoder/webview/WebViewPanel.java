@@ -129,7 +129,9 @@ public class WebViewPanel implements Disposable {
     }
 
     static String escapeForHtml(String value) {
-        if (value == null) return "";
+        if (value == null) {
+            return "";
+        }
         return value
                 .replace("&", "&amp;")
                 .replace("<", "&lt;")
@@ -154,14 +156,18 @@ public class WebViewPanel implements Disposable {
         browser.getJBCefClient().addLoadHandler(new CefLoadHandlerAdapter() {
             @Override
             public void onLoadStart(CefBrowser cefBrowser, CefFrame frame, CefRequest.TransitionType transitionType) {
-                if (!frame.isMain() || isAboutBlank(cefBrowser.getURL())) return;
+                if (!frame.isMain() || isAboutBlank(cefBrowser.getURL())) {
+                    return;
+                }
                 injectIntelliJEnv(cefBrowser);
                 injectBridgeInfrastructure(cefBrowser);
             }
 
             @Override
             public void onLoadEnd(CefBrowser cefBrowser, CefFrame frame, int httpStatusCode) {
-                if (!frame.isMain() || isAboutBlank(cefBrowser.getURL())) return;
+                if (!frame.isMain() || isAboutBlank(cefBrowser.getURL())) {
+                    return;
+                }
                 injectJsBridge(cefBrowser);
             }
 
@@ -363,17 +369,10 @@ public class WebViewPanel implements Disposable {
      * Reload the page. Use when "AI未初始化" or similar error occurs - backend may be ready after retry.
      */
     public void reloadPage() {
-        if (browser == null) return;
+        if (browser == null) {
+            return;
+        }
         browser.openDevtools();
-//        if (hasWebviewResource()) {
-//            contentPanel.removeAll();
-//            contentPanel.add(browser.getComponent(), BorderLayout.CENTER);
-//            contentPanel.revalidate();
-//            contentPanel.repaint();
-//            browser.loadURL(WebviewResourceScheme.getIndexUrl());
-//        } else {
-//            showResourceMissingPanel();
-//        }
     }
 
     private void showResourceMissingPanel() {
@@ -407,7 +406,9 @@ public class WebViewPanel implements Disposable {
     }
 
     public void emitEvent(String event, String jsonPayload) {
-        if (browser == null) return;
+        if (browser == null) {
+            return;
+        }
         String script = String.format(
                 "window.__vcoderEventBus && window.__vcoderEventBus.emit('%s', %s);",
                 event, jsonPayload
@@ -434,7 +435,9 @@ public class WebViewPanel implements Disposable {
     private void requestBrowserFocus(String reason) {
         ApplicationManager.getApplication().invokeLater(() -> {
             Runnable focusTask = () -> {
-                if (browser == null) return;
+                if (browser == null) {
+                    return;
+                }
                 try {
                     JComponent component = browser.getComponent();
                     if (component != null) {

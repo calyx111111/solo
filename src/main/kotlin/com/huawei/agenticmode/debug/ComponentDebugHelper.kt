@@ -41,6 +41,7 @@ class ComponentDebugHelper(
         when (event) {
             is MouseEvent -> handleMouseEvent(event)
             is KeyEvent -> handleKeyEvent(event)
+            else -> {}
         }
     }
 
@@ -107,6 +108,8 @@ class ComponentDebugHelper(
                 }
                 println("=========================================================\n")
             }
+
+            else -> {}
         }
     }
 
@@ -249,17 +252,19 @@ class ComponentDebugHelper(
         var index = 0
 
         while (cur != null) {
+            val currentComponent = cur
             val tags = buildList {
-                if (cur is ActionToolbarImpl) add("ActionToolbarImpl")
-                if (cur is ActionToolbar) add("ActionToolbar")
-                if (cur is ActionButton) add("ActionButton")
-                if (cur is JTabbedPane) add("JTabbedPane")
-                if (cur is JScrollPane) add("JScrollPane")
-                if (cur is JViewport) add("JViewport")
-                if (cur is JRootPane) add("JRootPane")
-                if (cur is Window) add("Window")
+                if (currentComponent is ActionToolbarImpl) add("ActionToolbarImpl")
+                if (currentComponent is ActionToolbar) add("ActionToolbar")
+                if (currentComponent is ActionButton) add("ActionButton")
+                if (currentComponent is JTabbedPane) add("JTabbedPane")
+                if (currentComponent is JScrollPane) add("JScrollPane")
+                if (currentComponent is JViewport) add("JViewport")
+                if (currentComponent is JRootPane) add("JRootPane")
+                if (currentComponent is Window) add("Window")
 
-                val name = cur!!.javaClass.name
+                // 修复：安全处理可空的currentComponent，避免NullPointerException
+                val name = currentComponent.javaClass.name
                 if (name.contains("JBTabsImpl")) add("JBTabsImpl?")
                 if (name.contains("TabLabel")) add("TabLabel?")
                 if (name.contains("EditorTabbedContainer")) add("EditorTabbedContainer?")

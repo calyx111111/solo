@@ -25,7 +25,9 @@ public class ProjectContextProvider {
 
     public boolean isHarmonyOSProject() {
         String basePath = project.getBasePath();
-        if (basePath == null) return false;
+        if (basePath == null) {
+            return false;
+        }
         String[] harmonyFiles = {"build-profile.json5", "oh-package.json5", "hvigorfile.ts", "module.json5"};
         for (String fileName : harmonyFiles) {
             if (Path.of(basePath, fileName).toFile().exists()) {
@@ -39,7 +41,8 @@ public class ProjectContextProvider {
     }
 
     public List<String> getOpenFiles() {
-        List<String> files = new ArrayList<>();
+        // 修复：使用显式泛型类型声明而非菱形操作符，符合Java编码规范
+        List<String> files = new ArrayList<String>();
         FileEditorManager editorManager = FileEditorManager.getInstance(project);
         for (VirtualFile file : editorManager.getOpenFiles()) {
             files.add(file.getPath());
@@ -63,7 +66,9 @@ public class ProjectContextProvider {
             Editor editor = textEditor.getEditor();
             SelectionModel selectionModel = editor.getSelectionModel();
             String selectedText = selectionModel.getSelectedText();
-            if (selectedText == null) selectedText = "";
+            if (selectedText == null) {
+                selectedText = "";
+            }
             VirtualFile file = editorManager.getSelectedFiles().length > 0 ? editorManager.getSelectedFiles()[0] : null;
             String filePath = file != null ? file.getPath() : "";
             int startLine = editor.getDocument().getLineNumber(selectionModel.getSelectionStart()) + 1;

@@ -30,7 +30,7 @@ private const val BUTTON_SIZE = 28
 private const val ARC_SIZE = 12  // 圆角直径，半径 6
 
 /** MainToolbarRight 最右侧会被窗口裁剪，需预留右侧边距；DevEco Studio 下设为 0 */
-private val TOOLBAR_RIGHT_INSET = JBUI.scale(
+private val toolBarRightInset = JBUI.scale(
     if (ApplicationNamesInfo.getInstance().fullProductName == "DevEco Studio") 0 else 80
 )
 
@@ -112,9 +112,9 @@ class ToggleEditorAction : AnAction(), CustomComponentAction {
         val button = ToggleEditorButton(this, presentation)
         return JPanel(BorderLayout()).apply {
             add(button, BorderLayout.WEST)
-            border = JBUI.Borders.emptyRight(TOOLBAR_RIGHT_INSET)
-            preferredSize = Dimension(BUTTON_SIZE + TOOLBAR_RIGHT_INSET, BUTTON_SIZE)
-            minimumSize = Dimension(BUTTON_SIZE + TOOLBAR_RIGHT_INSET, BUTTON_SIZE)
+            border = JBUI.Borders.emptyRight(toolBarRightInset)
+            preferredSize = Dimension(BUTTON_SIZE + toolBarRightInset, BUTTON_SIZE)
+            minimumSize = Dimension(BUTTON_SIZE + toolBarRightInset, BUTTON_SIZE)
             isOpaque = false
             putClientProperty(CustomComponentAction.ACTION_KEY, this@ToggleEditorAction)
         }
@@ -147,6 +147,7 @@ class ToggleEditorAction : AnAction(), CustomComponentAction {
         when (comp) {
             is ToggleEditorButton -> comp.refreshFromPresentation()
             is JPanel -> comp.components.filterIsInstance<ToggleEditorButton>().firstOrNull()?.refreshFromPresentation()
+            else -> {}
         }
     }
 

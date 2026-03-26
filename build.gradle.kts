@@ -186,14 +186,14 @@ sourceSets {
 }
 
 tasks.named<ProcessResources>("processResources") {
-   dependsOn("copyVcoderResources")
-   dependsOn("copyBackendResources")
-   dependsOn(generateBackendHash)
+//   dependsOn("copyVcoderResources")
+//   dependsOn("copyBackendResources")
+//   dependsOn(generateBackendHash)
 }
 
 tasks.named("patchPluginXml") {
-   dependsOn("copyVcoderResources")
-   dependsOn("copyBackendResources")
+//   dependsOn("copyVcoderResources")
+//   dependsOn("copyBackendResources")
 
 }
 

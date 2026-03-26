@@ -1,6 +1,5 @@
 package com.huawei.agenticmode.vcoder.agent;
 
-import com.esotericsoftware.kryo.kryo5.minlog.Log;
 import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.execution.process.OSProcessHandler;
 import com.intellij.execution.process.ProcessAdapter;
@@ -29,7 +28,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
@@ -48,7 +46,8 @@ public class AgentProcessManager implements Disposable {
     private final AtomicBoolean tsWsConnecting = new AtomicBoolean(false);
     private final AtomicBoolean isStarted = new AtomicBoolean(false);
     private final AtomicBoolean isDisposed = new AtomicBoolean(false);
-    private final Map<String, Set<WebSocketClient.EventListener>> eventListeners = new ConcurrentHashMap<>();
+    // 修复：使用显式泛型类型声明而非菱形操作符，符合Java编码规范
+    private final Map<String, Set<WebSocketClient.EventListener>> eventListeners = new ConcurrentHashMap<String, Set<WebSocketClient.EventListener>>();
 
     public AgentProcessManager(@Nullable Project project) {
         this.project = project;
@@ -184,7 +183,9 @@ public class AgentProcessManager implements Disposable {
                                 if (!content.isBlank()) {
                                     for (String line : content.split("\r?\n")) {
                                         String t = line.trim();
-                                        if (!t.isEmpty()) LOG.warn("[TS Agent] " + t);
+                                        if (!t.isEmpty()) {
+                                            LOG.warn("[TS Agent] " + t);
+                                        }
                                     }
                                 }
                                 LOG.warn("Full backend log kept at: " + logFile.toAbsolutePath());
@@ -241,7 +242,9 @@ public class AgentProcessManager implements Disposable {
     }
 
     private void connectTypeScriptWebSocket() {
-        if (!tsWsConnecting.compareAndSet(false, true)) return;
+        if (!tsWsConnecting.compareAndSet(false, true)) {
+            return;
+        }
         CompletableFuture.runAsync(() -> {
             try {
                 int attempt = 0;
@@ -284,7 +287,9 @@ public class AgentProcessManager implements Disposable {
     private boolean waitForTypeScriptWebSocket(long timeoutMs) {
         long start = System.currentTimeMillis();
         while (System.currentTimeMillis() - start < timeoutMs) {
-            if (tsWsClient != null && tsWsClient.isConnected()) return true;
+            if (tsWsClient != null && tsWsClient.isConnected()) {
+                return true;
+            }
             try {
                 Thread.sleep(100);
             } catch (InterruptedException e) {
@@ -296,7 +301,8 @@ public class AgentProcessManager implements Disposable {
     }
 
     public void addEventListener(String event, WebSocketClient.EventListener listener) {
-        eventListeners.computeIfAbsent(event, key -> new CopyOnWriteArraySet<>()).add(listener);
+        // 修复：使用显式泛型类型声明而非菱形操作符，符合Java编码规范
+        eventListeners.computeIfAbsent(event, key -> new CopyOnWriteArraySet<WebSocketClient.EventListener>()).add(listener);
         if (tsWsClient != null) {
             tsWsClient.addEventListener(event, listener);
         }
@@ -313,7 +319,9 @@ public class AgentProcessManager implements Disposable {
     }
 
     private void registerEventListeners(WebSocketClient client) {
-        if (client == null || eventListeners.isEmpty()) return;
+        if (client == null || eventListeners.isEmpty()) {
+            return;
+        }
         eventListeners.forEach((event, listeners) -> {
             for (WebSocketClient.EventListener listener : listeners) {
                 client.addEventListener(event, listener);
@@ -440,9 +448,11 @@ public class AgentProcessManager implements Disposable {
 
     private void extractResourceDirectory(String resourcePath, Path targetDir) throws IOException {
         java.net.URL resourceUrl = getClass().getResource(resourcePath);
-        if (resourceUrl == null) throw new IOException("Resource not found: " + resourcePath);
+        if (resourceUrl == null) {
+            throw new IOException("Resource not found: " + resourcePath);
+        }
 
-        if (resourceUrl.getProtocol().equals("file")) {
+        if ("file".equals(resourceUrl.getProtocol())) {
             try {
                 Path sourcePath = Path.of(resourceUrl.toURI());
                 copyDirectory(sourcePath, targetDir);
@@ -452,13 +462,15 @@ public class AgentProcessManager implements Disposable {
             }
         }
 
-        if (resourceUrl.getProtocol().equals("jar")) {
+        if ("jar".equals(resourceUrl.getProtocol())) {
             try {
                 String jarPath = resourceUrl.getPath().substring(5, resourceUrl.getPath().indexOf("!"));
                 try (java.util.jar.JarFile jar = new java.util.jar.JarFile(java.net.URLDecoder.decode(jarPath, "UTF-8"))) {
                     java.util.Enumeration<java.util.jar.JarEntry> entries = jar.entries();
                     String prefix = resourcePath.startsWith("/") ? resourcePath.substring(1) : resourcePath;
-                    if (!prefix.endsWith("/")) prefix += "/";
+                    if (!prefix.endsWith("/")) {
+                        prefix += "/";
+                    }
 
                     while (entries.hasMoreElements()) {
                         java.util.jar.JarEntry entry = entries.nextElement();
@@ -518,18 +530,21 @@ public class AgentProcessManager implements Disposable {
     }
 
     private void copyDirectory(Path source, Path target) throws IOException {
-        Files.walk(source).forEach(sourcePath -> {
-            try {
-                Path targetPath = target.resolve(source.relativize(sourcePath));
-                if (Files.isDirectory(sourcePath)) {
-                    Files.createDirectories(targetPath);
-                } else {
-                    Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+        // 修复：使用try-with-resources确保流正确关闭，避免资源泄漏
+        try (Stream<Path> stream = Files.walk(source)) {
+            stream.forEach(sourcePath -> {
+                try {
+                    Path targetPath = target.resolve(source.relativize(sourcePath));
+                    if (Files.isDirectory(sourcePath)) {
+                        Files.createDirectories(targetPath);
+                    } else {
+                        Files.copy(sourcePath, targetPath, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                } catch (IOException e) {
+                    LOG.warn("Failed to copy: " + sourcePath, e);
                 }
-            } catch (IOException e) {
-                LOG.warn("Failed to copy: " + sourcePath, e);
-            }
-        });
+            });
+        }
     }
 
     private boolean isPortAvailable(int port) {
@@ -538,29 +553,6 @@ public class AgentProcessManager implements Disposable {
             return true;
         } catch (IOException e) {
             return false;
-        }
-    }
-
-    /**
-     * Shorter base path on Windows to reduce risk of MAX_PATH (260) with node_modules.
-     */
-    private static Path getExtractionBaseDir() {
-        if (SystemInfo.isWindows) {
-            String home = System.getProperty("user.home", "");
-            if (!home.isEmpty()) {
-                Path shortBase = Path.of(home, ".vcoder");
-                try {
-                    Files.createDirectories(shortBase);
-                    return shortBase;
-                } catch (IOException e) {
-                    LOG.warn("Could not create " + shortBase + ", using temp dir", e);
-                }
-            }
-        }
-        try {
-            return Files.createTempDirectory("vcb");
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot create extraction dir", e);
         }
     }
 
@@ -634,28 +626,6 @@ public class AgentProcessManager implements Disposable {
     }
 
     /**
-     * Run backend once to capture startup error output when main process exits with empty log.
-     */
-    private String runBackendDiagnostic(String nodeCmd, Path tsBackendDir, int port, String workspace) {
-        try {
-            GeneralCommandLine line = buildBackendCommandLine(nodeCmd, tsBackendDir, port, workspace, null);
-            Process p = line.createProcess();
-            InputStream in = p.getInputStream();
-            byte[] buf = new byte[8192];
-            StringBuilder sb = new StringBuilder();
-            int n;
-            while ((n = in.read(buf)) > 0) {
-                sb.append(new String(buf, 0, n, StandardCharsets.UTF_8));
-            }
-            p.waitFor(5, TimeUnit.SECONDS);
-            if (p.isAlive()) p.destroyForcibly();
-            return sb.toString();
-        } catch (Exception e) {
-            return "Diagnostic failed: " + e.getMessage();
-        }
-    }
-
-    /**
      * Resolve node.exe on Windows when not in PATH (e.g. IDE sandbox).
      */
     @Nullable
@@ -666,7 +636,7 @@ public class AgentProcessManager implements Disposable {
         String[] candidates = {
                 programFiles != null ? programFiles + "\\nodejs\\node.exe" : null,
                 programFilesX86 != null ? programFilesX86 + "\\nodejs\\node.exe" : null,
-                localAppData != null ? localAppData + "\\Programs\\node\\node.exe" : null,
+                localAppData != null ? localAppData + "\\Programs\\node\\node.exe" : null
         };
         for (String path : candidates) {
             if (path != null && Files.exists(Path.of(path))) {
@@ -687,7 +657,9 @@ public class AgentProcessManager implements Disposable {
      * @return true if port became ready
      */
     public boolean blockUntilPortReady(int timeoutMs) {
-        if (tsAgentPort <= 0) return false;
+        if (tsAgentPort <= 0) {
+            return false;
+        }
         return waitForPortReady(tsAgentPort, timeoutMs);
     }
 
