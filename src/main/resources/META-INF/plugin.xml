@@ -26,42 +26,42 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
         <!-- Project-level service for solo mode state (每个 project 独立状态) -->
-        <projectService serviceImplementation="com.example.solo.SoloModeState"/>
+        <projectService serviceImplementation="com.huawei.agenticmode.SoloModeState"/>
 
         <!-- Project-level service for solo mode management -->
-        <projectService serviceImplementation="com.example.solo.SoloModeManager"/>
+        <projectService serviceImplementation="com.huawei.agenticmode.SoloModeManager"/>
 
         <!-- Start backend when IDE/project loads; Solo mode uses this shared backend. Must run before SoloModeStartupActivity. -->
-        <applicationService serviceImplementation="com.example.solo.vcoder.agent.GlobalBackendService"/>
-        <postStartupActivity id="com.example.solo.BackendProjectActivity" order="first"
-                             implementation="com.example.solo.BackendProjectActivity"/>
+        <applicationService serviceImplementation="com.huawei.agenticmode.vcoder.agent.GlobalBackendService"/>
+        <postStartupActivity id="com.huawei.agenticmode.BackendProjectActivity" order="first"
+                             implementation="com.huawei.agenticmode.BackendProjectActivity"/>
 
         <!-- Restore solo mode on project open - projectOpened 已弃用，改用 postStartupActivity. Runs after BackendStartupActivity. -->
-        <postStartupActivity id="com.example.solo.SoloModeStartupActivity"
-                             order="after com.example.solo.BackendProjectActivity"
-                             implementation="com.example.solo.SoloModeStartupActivity"/>
+        <postStartupActivity id="com.huawei.agenticmode.SoloModeStartupActivity"
+                             order="after com.huawei.agenticmode.BackendProjectActivity"
+                             implementation="com.huawei.agenticmode.SoloModeStartupActivity"/>
 
         <!-- Vcoder/BitFunAI settings for embedded AI panel -->
-        <applicationService serviceImplementation="com.example.solo.vcoder.settings.VcoderSettings"/>
+        <applicationService serviceImplementation="com.huawei.agenticmode.vcoder.settings.VcoderSettings"/>
     </extensions>
 
     <!-- Actions -->
     <actions>
-        <action id="com.example.solo.ToggleSoloModeAction"
-                class="com.example.solo.actions.ToggleSoloModeAction"
+        <action id="com.huawei.agenticmode.ToggleSoloModeAction"
+                class="com.huawei.agenticmode.actions.ToggleSoloModeAction"
                 text="Toggle Solo Mode"
                 description="Toggle between standard mode and solo mode">
             <add-to-group group-id="MainToolbarLeft" anchor="first"/>
             <keyboard-shortcut keymap="$default" first-keystroke="ctrl shift F11"/>
         </action>
-        <action id="com.example.solo.ToggleSessionAction"
-                class="com.example.solo.actions.ToggleSessionAction"
+        <action id="com.huawei.agenticmode.ToggleSessionAction"
+                class="com.huawei.agenticmode.actions.ToggleSessionAction"
                 text="Toggle Session"
                 description="Toggle session (placeholder)">
-            <add-to-group group-id="MainToolbarLeft" anchor="after" relative-to-action="com.example.solo.ToggleSoloModeAction"/>
+            <add-to-group group-id="MainToolbarLeft" anchor="after" relative-to-action="com.huawei.agenticmode.ToggleSoloModeAction"/>
         </action>
-        <action id="com.example.solo.ToggleEditorAction"
-                class="com.example.solo.actions.ToggleEditorAction"
+        <action id="com.huawei.agenticmode.ToggleEditorAction"
+                class="com.huawei.agenticmode.actions.ToggleEditorAction"
                 text="Toggle Editor"
                 description="Toggle editor (placeholder)">
             <add-to-group group-id="MainToolbarRight" anchor="last"/>

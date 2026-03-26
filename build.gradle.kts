@@ -14,7 +14,7 @@ plugins {
     id("org.jetbrains.intellij") version "1.17.3"
 }
 
-group = "com.example"
+group = "com.huawei"
 version = "1.0.3"
 
 repositories {
