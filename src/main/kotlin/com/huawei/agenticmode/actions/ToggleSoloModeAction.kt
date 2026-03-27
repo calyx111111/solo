@@ -26,7 +26,7 @@ private const val BUTTON_SIZE_28 = 28  // 按钮高度与圆角直径共用
  * 自定义 toolbar 按钮组件，hover 背景为 80×28、rx=14 圆角，与图标区域完全一致。
  */
 class SoloModeToggleButton(
-    private val action: ToggleSoloModeAction,
+    action: ToggleSoloModeAction,
     private val presentation: Presentation,
     place: String
 ) : ActionButton(action, presentation, place, Dimension(BUTTON_WIDTH, BUTTON_SIZE_28)) {
@@ -61,23 +61,24 @@ class SoloModeToggleButton(
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
             g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
 
+            val icon = presentation.icon ?: return
+            val x = (width - icon.iconWidth) / 2
+            val y = (height - icon.iconHeight) / 2
+
             if (isHovered && isEnabled) {
                 g2.color = JBUI.CurrentTheme.CustomFrameDecorations.titlePaneButtonHoverBackground()
                 g2.fill(
                     RoundRectangle2D.Float(
-                        0f,
-                        0f,
-                        width.toFloat(),
-                        height.toFloat(),
+                        x.toFloat(),
+                        y.toFloat(),
+                        icon.iconWidth.toFloat(),
+                        icon.iconHeight.toFloat(),
                         BUTTON_SIZE_28.toFloat(),
-                        BUTTON_SIZE_28.toFloat()
+                        BUTTON_SIZE_28.toFloat(),
                     )
                 )
             }
 
-            val icon = presentation.icon ?: return
-            val x = (width - icon.iconWidth) / 2
-            val y = (height - icon.iconHeight) / 2
             icon.paintIcon(this, g2, x, y)
         } finally {
             g2.dispose()
