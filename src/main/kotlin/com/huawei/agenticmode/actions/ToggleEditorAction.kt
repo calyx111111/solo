@@ -2,13 +2,12 @@ package com.huawei.agenticmode.actions
 
 import com.huawei.agenticmode.SoloModeManager
 import com.huawei.agenticmode.SoloModePanel
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.ex.CustomComponentAction
 import com.intellij.openapi.actionSystem.Presentation
+import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.util.IconLoader
 import com.intellij.util.ui.JBUI
@@ -23,7 +22,6 @@ import java.awt.geom.RoundRectangle2D
 import javax.swing.Icon
 import javax.swing.JComponent
 import javax.swing.JPanel
-import javax.swing.SwingUtilities
 
 /** 28×28 方形热区，圆角半径 6 */
 private const val BUTTON_SIZE = 28
@@ -37,15 +35,18 @@ private val toolBarRightInset = JBUI.scale(
 /** 自定义按钮，与 SoloModeToggleButton 相同的 hover 样式 */
 internal class ToggleEditorButton(
     private val action: ToggleEditorAction,
-    private val presentation: Presentation
-) : JComponent() {
+    private val presentation: Presentation,
+    place: String
+) : ActionButton(action, presentation, place, Dimension(BUTTON_SIZE, BUTTON_SIZE)) {
 
     init {
         putClientProperty(CustomComponentAction.ACTION_KEY, action)
         preferredSize = Dimension(BUTTON_SIZE, BUTTON_SIZE)
         minimumSize = Dimension(BUTTON_SIZE, BUTTON_SIZE)
+        maximumSize = Dimension(BUTTON_SIZE, BUTTON_SIZE)
         toolTipText = presentation.text
         isOpaque = false
+        border = JBUI.Borders.empty()
 
         addMouseListener(object : MouseAdapter() {
             override fun mouseEntered(e: MouseEvent) {
@@ -56,14 +57,6 @@ internal class ToggleEditorButton(
             override fun mouseExited(e: MouseEvent) {
                 isHovered = false
                 repaint()
-            }
-
-            override fun mouseClicked(e: MouseEvent) {
-                if (SwingUtilities.isLeftMouseButton(e) && isEnabled) {
-                    ActionManager.getInstance().tryToExecute(
-                        action, e, this@ToggleEditorButton, ActionPlaces.MAIN_TOOLBAR, true
-                    )
-                }
             }
         })
     }
@@ -94,12 +87,6 @@ internal class ToggleEditorButton(
             g2.dispose()
         }
     }
-
-    fun refreshFromPresentation() {
-        toolTipText = presentation.text
-        isEnabled = presentation.isEnabled
-        repaint()
-    }
 }
 
 class ToggleEditorAction : AnAction(), CustomComponentAction {
@@ -109,7 +96,7 @@ class ToggleEditorAction : AnAction(), CustomComponentAction {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override fun createCustomComponent(presentation: Presentation, place: String): JComponent {
-        val button = ToggleEditorButton(this, presentation)
+        val button = ToggleEditorButton(this, presentation, place)
         return JPanel(BorderLayout()).apply {
             add(button, BorderLayout.WEST)
             border = JBUI.Borders.emptyRight(toolBarRightInset)
@@ -142,13 +129,6 @@ class ToggleEditorAction : AnAction(), CustomComponentAction {
             }
         }
         e.presentation.isEnabled = project != null
-
-        val comp = e.presentation.getClientProperty(CustomComponentAction.COMPONENT_KEY)
-        when (comp) {
-            is ToggleEditorButton -> comp.refreshFromPresentation()
-            is JPanel -> comp.components.filterIsInstance<ToggleEditorButton>().firstOrNull()?.refreshFromPresentation()
-            else -> {}
-        }
     }
 
     companion object {

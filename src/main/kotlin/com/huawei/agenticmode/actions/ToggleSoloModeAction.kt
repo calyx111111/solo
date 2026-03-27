@@ -2,13 +2,12 @@ package com.huawei.agenticmode.actions
 
 import com.huawei.agenticmode.SoloModeManager
 import com.huawei.agenticmode.login.LoginManager
-import com.intellij.openapi.actionSystem.ActionManager
-import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.ex.CustomComponentAction
 import com.intellij.openapi.actionSystem.Presentation
+import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.util.ui.JBUI
@@ -18,7 +17,6 @@ import java.awt.event.MouseEvent
 import java.awt.geom.RoundRectangle2D
 import javax.swing.Icon
 import javax.swing.JComponent
-import javax.swing.SwingUtilities
 
 /** 按钮尺寸与 SVG 一致；圆角半径 rx=14，RoundRectangle2D 的 arcWidth/arcHeight 为直径 = 28 */
 private const val BUTTON_WIDTH = 80
@@ -29,15 +27,18 @@ private const val BUTTON_SIZE_28 = 28  // 按钮高度与圆角直径共用
  */
 class SoloModeToggleButton(
     private val action: ToggleSoloModeAction,
-    private val presentation: Presentation
-) : JComponent() {
+    private val presentation: Presentation,
+    place: String
+) : ActionButton(action, presentation, place, Dimension(BUTTON_WIDTH, BUTTON_SIZE_28)) {
 
     init {
         putClientProperty(CustomComponentAction.ACTION_KEY, action)
         preferredSize = Dimension(BUTTON_WIDTH, BUTTON_SIZE_28)
         minimumSize = Dimension(BUTTON_WIDTH, BUTTON_SIZE_28)
+        maximumSize = Dimension(BUTTON_WIDTH, BUTTON_SIZE_28)
         toolTipText = presentation.text
         isOpaque = false
+        border = JBUI.Borders.empty()
 
         addMouseListener(object : MouseAdapter() {
             override fun mouseEntered(e: MouseEvent) {
@@ -48,14 +49,6 @@ class SoloModeToggleButton(
             override fun mouseExited(e: MouseEvent) {
                 isHovered = false
                 repaint()
-            }
-
-            override fun mouseClicked(e: MouseEvent) {
-                if (SwingUtilities.isLeftMouseButton(e) && isEnabled) {
-                    ActionManager.getInstance().tryToExecute(
-                        action, e, this@SoloModeToggleButton, ActionPlaces.MAIN_TOOLBAR, true
-                    )
-                }
             }
         })
     }
@@ -90,12 +83,6 @@ class SoloModeToggleButton(
             g2.dispose()
         }
     }
-
-    fun refreshFromPresentation() {
-        toolTipText = presentation.text
-        isEnabled = presentation.isEnabled
-        repaint()
-    }
 }
 
 class ToggleSoloModeAction : AnAction(), CustomComponentAction {
@@ -106,7 +93,7 @@ class ToggleSoloModeAction : AnAction(), CustomComponentAction {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
     override fun createCustomComponent(presentation: Presentation, place: String): JComponent {
-        return SoloModeToggleButton(this, presentation)
+        return SoloModeToggleButton(this, presentation, place)
     }
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -140,8 +127,6 @@ class ToggleSoloModeAction : AnAction(), CustomComponentAction {
             }
         }
         e.presentation.isEnabled = project != null
-
-        (e.presentation.getClientProperty(CustomComponentAction.COMPONENT_KEY) as? SoloModeToggleButton)?.refreshFromPresentation()
     }
 
     companion object {
