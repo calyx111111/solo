@@ -2,6 +2,7 @@ package com.huawei.agenticmode.login
 
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.project.Project
+import java.awt.Window
 
 @Service(Service.Level.APP)
 class LoginManager {
@@ -33,4 +34,6 @@ class LoginManager {
     fun hasLogin(): Boolean = service.hasLogin()
 
     fun login(project: Project) = service.login(project)
+
+    fun afterLogin(project: Project, window: Window) = service.afterLogin(project, window)
 }

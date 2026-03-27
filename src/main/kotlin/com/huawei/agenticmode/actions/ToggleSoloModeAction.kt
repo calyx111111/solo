@@ -10,11 +10,9 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.ex.CustomComponentAction
 import com.intellij.openapi.actionSystem.Presentation
 import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.wm.WindowManager
 import com.intellij.util.ui.JBUI
-import java.awt.Dimension
-import java.awt.Graphics
-import java.awt.Graphics2D
-import java.awt.RenderingHints
+import java.awt.*
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.awt.geom.RoundRectangle2D
@@ -115,10 +113,12 @@ class ToggleSoloModeAction : AnAction(), CustomComponentAction {
         val project = e.project ?: return
 
         val isLogin = LoginManager.getInstance().hasLogin()
-        println("SoloMode: toggle solo panel, current login status ${isLogin}")
+        println("SoloMode: try toggle solo panel, current login status $isLogin")
 
         if (!isLogin) {
             LoginManager.getInstance().login(project)
+            val window = project.let { WindowManager.getInstance().getFrame(it) } as Window ?: return
+            LoginManager.getInstance().afterLogin(project, window)
             return
         }
 
