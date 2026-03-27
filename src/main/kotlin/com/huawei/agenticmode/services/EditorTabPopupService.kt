@@ -1,26 +1,31 @@
 package com.huawei.agenticmode.services
 
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.actionSystem.ActionGroup
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.IdeActions
+import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
+import com.intellij.ui.tabs.impl.JBTabsImpl
 import java.awt.Component
 import java.awt.Container
-import java.awt.Point
-import java.awt.event.MouseAdapter
-import java.awt.event.MouseEvent
+import java.util.Collections
+import java.util.IdentityHashMap
+import java.util.WeakHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import javax.swing.JComponent
-import javax.swing.MenuSelectionManager
-import javax.swing.SwingUtilities
 
 /**
- * Solo 模式下在编辑器 Tab 上提供白名单右键菜单；通过 [enable]/[disable] 控制是否拦截弹出。
- * Tab / 编辑器结构变化依赖 [FileEditorChangeDispatcher]（与 [EditorTabDragLockService] 相同），不在此挂 ContainerListener。
+ * Replaces the editor tab popup at the JBTabs level instead of racing the platform's tab-label mouse listeners.
+ * This avoids the original popup flashing briefly before our filtered popup appears.
  */
 @Service(Service.Level.PROJECT)
 class EditorTabPopupService(
@@ -32,9 +37,10 @@ class EditorTabPopupService(
     private var installed = false
     private var currentRoot: Container? = null
     private var tabChangeCallback: (() -> Unit)? = null
+    private val popupBindings = WeakHashMap<JBTabsImpl, PopupBinding>()
 
     /**
-     * 白名单 action id
+     * Allowed action ids in the tab popup.
      */
     private val allowedActionIds = linkedSetOf(
         IdeActions.ACTION_CLOSE,
@@ -82,6 +88,9 @@ class EditorTabPopupService(
     fun disable() {
         if (!installed || project.isDisposed) return
         enabled.set(false)
+
+        val root = currentRoot ?: safeGetRootContainer() ?: return
+        restorePopupGroupsInSubtree(root)
     }
 
     fun isEnabled(): Boolean = enabled.get()
@@ -96,17 +105,22 @@ class EditorTabPopupService(
         val root = currentRoot ?: safeGetRootContainer()
         currentRoot = null
         if (root != null) {
-            removeOurPopupListenersInSubtree(root)
+            restorePopupGroupsInSubtree(root)
         }
 
+        popupBindings.clear()
         rootProvider = null
     }
 
     private fun scheduleRefresh() {
         ApplicationManager.getApplication().invokeLater {
             if (!installed || project.isDisposed) return@invokeLater
-            val root = currentRoot ?: safeGetRootContainer() ?: return@invokeLater
-            attachPopupListenersInSubtree(root)
+            rebindRootIfNeeded()
+            val root = currentRoot ?: return@invokeLater
+            cleanupBindingsOutsideRoot(root)
+
+            if (!enabled.get()) return@invokeLater
+            applyPopupGroupsInSubtree(root)
         }
     }
 
@@ -116,7 +130,13 @@ class EditorTabPopupService(
         val newRoot = safeGetRootContainer()
         if (newRoot === currentRoot) return
 
+        currentRoot?.let { restorePopupGroupsInSubtree(it) }
         currentRoot = newRoot
+        if (newRoot != null) {
+            cleanupBindingsOutsideRoot(newRoot)
+        } else {
+            popupBindings.clear()
+        }
     }
 
     private fun safeGetRootContainer(): Container? {
@@ -128,64 +148,50 @@ class EditorTabPopupService(
         }
     }
 
-    private fun attachPopupListenersInSubtree(component: Component) {
+    private fun applyPopupGroupsInSubtree(component: Component) {
+        val originalGroup = findOriginalEditorTabPopupGroup() ?: return
+
         traverse(component) { c ->
-            val jc = c as? JComponent ?: return@traverse
-            if (!isEditorTabLabel(jc)) return@traverse
-            attachPopupListenerToTabLabel(jc)
+            val tabs = c as? JBTabsImpl ?: return@traverse
+            attachPopupGroupToTabs(tabs, originalGroup)
         }
     }
 
-    private fun attachPopupListenerToTabLabel(tabLabel: JComponent) {
-        val already = tabLabel.mouseListeners.firstOrNull { it is SoloEditorTabPopupMouseListener } as? SoloEditorTabPopupMouseListener
-        if (already != null) {
-            return
-        }
-
-        val listener = SoloEditorTabPopupMouseListener(tabLabel)
-
-        try {
-            tabLabel.addMouseListener(listener)
-        } catch (_: Throwable) {
+    private fun restorePopupGroupsInSubtree(component: Component) {
+        traverse(component) { c ->
+            val tabs = c as? JBTabsImpl ?: return@traverse
+            restorePopupGroup(tabs)
         }
     }
 
-    private fun removeOurPopupListenersInSubtree(component: Component) {
-        traverse(component) { c ->
-            val jc = c as? JComponent ?: return@traverse
-            if (!isEditorTabLabel(jc)) return@traverse
-            val ours = jc.mouseListeners.filterIsInstance<SoloEditorTabPopupMouseListener>()
-            for (l in ours) {
-                try {
-                    jc.removeMouseListener(l)
-                } catch (_: Throwable) {
-                }
+    private fun cleanupBindingsOutsideRoot(root: Component) {
+        val liveTabs = Collections.newSetFromMap(IdentityHashMap<JBTabsImpl, Boolean>())
+        traverse(root) { c ->
+            val tabs = c as? JBTabsImpl ?: return@traverse
+            liveTabs.add(tabs)
+        }
+
+        val iterator = popupBindings.entries.iterator()
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            val tabs = entry.key ?: continue
+            if (tabs !in liveTabs) {
+                restorePopupGroup(tabs)
+                iterator.remove()
             }
         }
     }
 
-    /** 用于在 [JComponent.mouseListeners] 中识别本服务注册的监听，避免重复 add。 */
-    private inner class SoloEditorTabPopupMouseListener(
-        private val tabLabel: JComponent
-    ) : MouseAdapter() {
-        override fun mousePressed(e: MouseEvent) {
-            handlePopup(tabLabel, e)
+    private fun attachPopupGroupToTabs(tabs: JBTabsImpl, originalGroup: ActionGroup) {
+        val binding = popupBindings.getOrPut(tabs) {
+            PopupBinding(
+                originalGroup = tabs.popupGroup ?: originalGroup,
+                originalPlace = tabs.popupPlace,
+                originalAddNavigationGroup = tabs.addNavigationGroup
+            )
         }
 
-        override fun mouseReleased(e: MouseEvent) {
-            handlePopup(tabLabel, e)
-        }
-    }
-
-    private fun handlePopup(tabLabel: JComponent, mouseEvent: MouseEvent) {
-        if (!installed || project.isDisposed) return
-        if (!enabled.get()) return
-        if (!mouseEvent.isPopupTrigger) return
-        if (!tabLabel.isShowing) return
-
-        val originalGroup = findOriginalEditorTabPopupGroup() ?: return
-
-        mouseEvent.consume()
+        if (binding.applied) return
 
         val wrappedGroup = WhitelistAwareActionGroup(
             delegate = originalGroup,
@@ -195,23 +201,32 @@ class EditorTabPopupService(
             )
         )
 
-        val popupMenu = ActionManager.getInstance()
-            .createActionPopupMenu(ActionPlaces.EDITOR_POPUP, wrappedGroup)
-
-        val point = normalizePointForComponent(tabLabel, mouseEvent)
-
-        // 与 EditorTabLabel 上平台自带的 MouseListener 同级；consume() 不能阻止对方在同一事件里先弹出菜单。
-        // 弹出前 clear，把已经激活的菜单清除，避免闪烁弹出原本的右键菜单
-        SwingUtilities.invokeLater {
-            MenuSelectionManager.defaultManager().clearSelectedPath()
-            popupMenu.component.show(tabLabel, point.x, point.y)
+        try {
+            tabs.setPopupGroup(
+                wrappedGroup,
+                binding.originalPlace ?: ActionPlaces.EDITOR_POPUP,
+                binding.originalAddNavigationGroup
+            )
+            binding.applied = true
+        } catch (_: Throwable) {
         }
     }
 
+    private fun restorePopupGroup(tabs: JBTabsImpl) {
+        val binding = popupBindings[tabs] ?: return
+        if (!binding.applied) return
 
-    /**
-     * 不同平台版本 group id 可能不一样，这里多试几个
-     */
+        try {
+            tabs.setPopupGroup(
+                binding.originalGroup,
+                binding.originalPlace ?: ActionPlaces.EDITOR_POPUP,
+                binding.originalAddNavigationGroup
+            )
+            binding.applied = false
+        } catch (_: Throwable) {
+        }
+    }
+
     private fun findOriginalEditorTabPopupGroup(): ActionGroup? {
         val actionManager = ActionManager.getInstance()
 
@@ -236,26 +251,6 @@ class EditorTabPopupService(
         }
 
         return null
-    }
-
-    private fun normalizePointForComponent(component: JComponent, event: MouseEvent): Point {
-        return try {
-            SwingUtilities.convertPoint(event.component, event.point, component)
-        } catch (_: Throwable) {
-            event.point
-        }
-    }
-
-    private fun isEditorTabLabel(component: JComponent): Boolean {
-        val simpleName = component.javaClass.simpleName
-        val className = component.javaClass.name
-
-        if (simpleName == "EditorTabLabel") return true
-        if (className.endsWith(".EditorTabLabel")) return true
-        if (simpleName.contains("EditorTabLabel")) return true
-        if (className.contains("EditorTabLabel")) return true
-
-        return false
     }
 
     private fun traverse(component: Component, visit: (Component) -> Unit) {
@@ -308,7 +303,6 @@ class EditorTabPopupService(
             }
 
             val filtered = ArrayList<AnAction>(children.size)
-
             val subtreeAllowed = subtreeAllowedFromParent || policy.isAllowedGroup(delegate)
 
             for (child in children) {
@@ -381,6 +375,13 @@ class EditorTabPopupService(
 
         override fun getActionUpdateThread(): ActionUpdateThread = delegate.actionUpdateThread
     }
+
+    private data class PopupBinding(
+        val originalGroup: ActionGroup,
+        val originalPlace: String?,
+        val originalAddNavigationGroup: Boolean,
+        var applied: Boolean = false
+    )
 
     companion object {
         fun getInstance(project: Project): EditorTabPopupService {
